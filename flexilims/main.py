@@ -67,7 +67,7 @@ class Flexilims(object):
         self.log.append(rep.content)
 
         if rep.ok and (rep.status_code == 200):
-            return rep.json()
+            return rep.content.decode('utf8')
         elif rep.ok:
             warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
             warnings.warn('Will return the response object')
@@ -140,7 +140,6 @@ def get_token(username, password=None):
 
 if __name__ == '__main__':
     sess = Flexilims('blota')
-    sess.project_id = '604f52a545f067034a960a41'
-    sess.project_id = '60192ed97ab450123513add2'
+    sess.project_id = '605a11a13b38df2abd7756a1'
     rep = sess.get(datatype='session')
     print('Done')

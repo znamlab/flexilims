@@ -35,6 +35,21 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Invalid input. Unknown project_id (must be the hexadecimal ID)'
 
 
+def test_put_req():
+    sess = flm.Flexilims(username, project_id=project_id)
+    # get to know how many session there are
+    n_sess = len(sess.get(datatype='session'))
+    rep = sess.put(datatype='session', update_key='test_attribute',
+                   update_value='new_value', query_key=None, query_value=None)
+    assert rep == 'updated successfully %d items of type session with test_attribute=new_value'%n_sess
+    rep = sess.put(datatype='session', update_key='test_attribute',
+                   update_value='new_value', query_key='test_uniq', query_value='nonexistingvalue')
+    assert rep == 'updated successfully 0 items of type session with test_attribute=new_value'
+    rep = sess.put(datatype='session', query_key='test_uniq', query_value='unique',
+                   update_key='test_uniq', update_value='unique')
+    assert rep == 'updated successfully 1 items of type session with test_uniq=unique'
+
+
 def test_post_req():
     sess = flm.Flexilims(username, project_id=project_id)
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
