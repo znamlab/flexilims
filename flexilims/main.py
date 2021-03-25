@@ -122,11 +122,11 @@ def get_token(username, password=None):
 
     if password is None:
         try:
-            from flexilims import secret_password
+            from resources import secret_password
         except ImportError:
             print('Cannot load flexilims.secret_password')
             return
-        password = secret_password.password_dict[username]
+        password = secret_password.flexilims_passwords[username]
 
     rep = requests.post(BASE_URL + 'authenticate', auth=HTTPBasicAuth(username, password))
     if rep.ok:

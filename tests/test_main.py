@@ -3,9 +3,10 @@
 import pytest
 import datetime
 import flexilims.main as flm
+from resources.secret_password import flexilims_passwords
 
 username = 'blota'
-password = 'blota'
+password = flexilims_passwords['blota']
 project_id = '605a11a13b38df2abd7756a1'  # <- test_api project
 
 
