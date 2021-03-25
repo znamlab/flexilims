@@ -17,7 +17,7 @@ def test_token():
     assert len(tok)
 
 
-def test_session_createion():
+def test_session_creation():
     flm.Flexilims(username)
 
 
@@ -54,8 +54,10 @@ def test_put_req():
 def test_post_req():
     sess = flm.Flexilims(username, project_id=project_id)
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    sess.post(datatype='mouse', name='test_ran_on_%s' % now, attributes=dict())
-
+    sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
+    sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
+              attributes=dict(session='605a36c53b38df2abd7757e9', trial=1),
+              origin_id='605a36c53b38df2abd7757e9')
 
 def test_post_error():
     sess = flm.Flexilims(username)
@@ -68,3 +70,7 @@ def test_post_error():
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='mouse', project_id='InvalidProject', name='temp', attributes={})
     assert exc_info.value.args[0] == 'Error 400:  project id not valid, please provide a hexademical value'
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype='recording', project_id=project_id, name='test_ran_on_%s_with_origin' % 'now',
+                  attributes=dict(), origin_id='605a36c53b38df2abd7757e9', other_relations='605a36be3b38df2abd7757e8')
+    assert exc_info.value.args[0] == 'Unhandled error. Contact Computing STP'

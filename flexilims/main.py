@@ -97,6 +97,8 @@ class Flexilims(object):
             warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
             warnings.warn('Will return the response object')
             return rep
+        if rep.status_code == 500:
+            raise IOError('Unhandled error. Contact Computing STP')
         error_dict = parse_error(rep.content)
         raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
 
