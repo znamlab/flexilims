@@ -4,7 +4,7 @@ import time
 BASE_URL = 'https://crick.colonymanagement.org/mouse/'
 
 
-def download_mouse_info(mouse_name, username, password=None):
+def download_mouse_info(mouse_name, username, password=None, suffix='autodownloaded'):
     """Log in to MCMS using webbot and download csv about all alive mice"""
     if password is None:
         try:
@@ -45,13 +45,13 @@ def download_mouse_info(mouse_name, username, password=None):
     # Change target file name
     assert web.exists(xpath="/html/body/div[8]/div[3]/div[1]/input")
     web.click(xpath="/html/body/div[8]/div[3]/div[1]/input")
-    web.type('\b'*100 + mouse_name + 'download_from_mcms')
+    web.type('\b'*100 + mouse_name + '_' + suffix)
     # Checks to see if required button exists
     assert web.exists(xpath="/html/body/div[8]/div[3]/div[1]/span")
     web.click(id="customQueryDt_downloadToFile")
     # sleep timer to allow for download
     time.sleep(5)  # seconds
-    print("Alive mice downloaded")
+    print("Mouse info downloaded")
 
 
 if __name__ == '__main__':
