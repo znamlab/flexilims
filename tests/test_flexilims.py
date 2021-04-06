@@ -42,7 +42,7 @@ def test_put_req():
     n_sess = len(sess.get(datatype='session'))
     rep = sess.put(datatype='session', update_key='test_attribute',
                    update_value='new_value', query_key=None, query_value=None)
-    assert rep == 'updated successfully %d items of type session with test_attribute=new_value'%n_sess
+    assert rep == 'updated successfully %d items of type session with test_attribute=new_value' % n_sess
     rep = sess.put(datatype='session', update_key='test_attribute',
                    update_value='new_value', query_key='test_uniq', query_value='nonexistingvalue')
     assert rep == 'updated successfully 0 items of type session with test_attribute=new_value'
@@ -58,6 +58,7 @@ def test_post_req():
     sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
               attributes=dict(session='605a36c53b38df2abd7757e9', trial=1),
               origin_id='605a36c53b38df2abd7757e9')
+
 
 def test_post_error():
     sess = flm.Flexilims(username)
