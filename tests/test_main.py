@@ -2,7 +2,7 @@
 
 import pytest
 import datetime
-import flexilims.main as flm
+import flexilims as flm
 from resources.secret_password import flexilims_passwords
 
 username = 'blota'
