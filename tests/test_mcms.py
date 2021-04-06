@@ -3,8 +3,8 @@ import datetime
 import mcms
 from resources.secret_password import mcms_passwords
 
-username = 'blota'
-password = mcms_passwords['blota']
+username = 'ab8'
+password = mcms_passwords[username]
 
 
 def test_download_mouse():
