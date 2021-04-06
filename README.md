@@ -1,10 +1,10 @@
-# Flexilims
+# Flexilims repository
 
 Flexilims is a laboratory database software written and maintained by the database team of the Crick. Flexilims web interface can be accessed at https://flexylims.thecrick.org/flexilims/. Mike Gavrielides wrote an API. His initial documentations can be found in the `docs` folder.
 
 This repository is defining python wrappers to use the API.
 
-# flexilims.main
+# flexilims
 
 This package contains a class with generic wrapper to the flexilims get/put/post request. It should not depend on particular local schema.
 
