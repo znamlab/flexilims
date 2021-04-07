@@ -80,7 +80,7 @@ def get_mouse_df(mouse_name, username, password=None):
     mouse_data.columns = cols
     mouse_data.set_index('animal_name', drop=False, inplace=True)
 
-    return mouse_data
+    return mouse_data.loc[mouse_name]
 
 
 if __name__ == '__main__':

@@ -1,1 +1,1 @@
-from mcms.main import download_mouse_info
+from mcms.main import get_mouse_df
