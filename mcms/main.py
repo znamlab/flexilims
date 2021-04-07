@@ -1,5 +1,8 @@
-from webbot import Browser
+import os
 import time
+import pandas as pd
+from webbot import Browser
+from resources import parameters as prm
 
 BASE_URL = 'https://crick.colonymanagement.org/mouse/'
 
@@ -28,7 +31,7 @@ def download_mouse_info(mouse_name, username, password=None, suffix='autodownloa
     web.click(xpath="/html/body/div[3]/form/div[3]/div/div/div/div/button")
     time.sleep(0.5)  # seconds
     web.click('Animal Name')
-    #web.click(xpath="/html/body/div[3]/form/div[2]/div/div/div[3]/table/tbody/tr/td[2]/span/select")
+    # web.click(xpath="/html/body/div[3]/form/div[2]/div/div/div[3]/table/tbody/tr/td[2]/span/select")
     time.sleep(0.5)  # seconds
     web.type(mouse_name)
     time.sleep(0.1)  # seconds
@@ -45,7 +48,7 @@ def download_mouse_info(mouse_name, username, password=None, suffix='autodownloa
     # Change target file name
     assert web.exists(xpath="/html/body/div[8]/div[3]/div[1]/input")
     web.click(xpath="/html/body/div[8]/div[3]/div[1]/input")
-    web.type('\b'*100 + mouse_name + '_' + suffix)
+    web.type('\b' * 100 + mouse_name + '_' + suffix)
     # Checks to see if required button exists
     assert web.exists(xpath="/html/body/div[8]/div[3]/div[1]/span")
     web.click(id="customQueryDt_downloadToFile")
@@ -54,5 +57,32 @@ def download_mouse_info(mouse_name, username, password=None, suffix='autodownloa
     print("Mouse info downloaded")
 
 
+def get_mouse_df(mouse_name, username, password=None):
+    """Load mouse info from mcms in a dataframe"""
+    download_mouse_info(mouse_name, username, password, suffix='get_mouse_df_file')
+    fnames = [s for s in os.listdir(prm.DOWNLOAD_FOLDER) if s.startswith(mouse_name + '_get_mouse_df_file')]
+    if len(fnames) > 1:
+        raise IOError('Multiple file found. Please remove old downloads with similar name '
+                      '(i.e. starting with %s' % (mouse_name + '_get_mouse_df_file'))
+
+    # read this file and delete it
+    mcms_file = os.path.join(prm.DOWNLOAD_FOLDER, fnames[0])
+    mouse_data = pd.read_csv(mcms_file)
+    os.remove(mcms_file)
+    # reformat columns name to valid flexilims attribute
+    cols = []
+    replace_map = {' ': '_', '.': '_', '(': '', ')': ''}
+    for col in mouse_data.columns:
+        for char in replace_map.keys():
+            if char in col:
+                col = col.replace(char, replace_map[char])
+        cols.append(col.lower())
+    mouse_data.columns = cols
+    mouse_data.set_index('animal_name', drop=False, inplace=True)
+
+    return mouse_data
+
+
 if __name__ == '__main__':
-    download_mouse_info(username='ab8', mouse_name='PZAJ2.1c')
+    df = get_mouse_df(username='ab8', mouse_name='PZAJ2.1c')
+    print('done')
