@@ -124,7 +124,7 @@ def get_token(username, password=None):
 
     if password is None:
         try:
-            from resources import secret_password
+            from flexilims import secret_password
         except ImportError:
             print('Cannot load flexilims.secret_password')
             return
