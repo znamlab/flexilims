@@ -36,7 +36,7 @@ class Flexilims(object):
         if project_id is None:
             project_id = self.project_id
 
-        rep = self.session.get(self.base_url + 'get', params=dict(type=datatype, projectId=project_id))
+        rep = self.session.get(self.base_url + 'get', params=dict(type=datatype, project_id=project_id))
         self.log.append(rep.content)
 
         if rep.ok and (rep.status_code == 200):
@@ -57,7 +57,7 @@ class Flexilims(object):
         """Update existing object"""
         if project_id is None:
             project_id = self.project_id
-        params = dict(type=datatype, projectId=project_id, updateKey=update_key, updateValue=update_value)
+        params = dict(type=datatype, project_id=project_id, updateKey=update_key, updateValue=update_value)
         if query_key is not None:
             params['queryKey'] = query_key
         if query_value is not None:
