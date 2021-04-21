@@ -1,13 +1,22 @@
 import pandas as pd
-import numpy as np
 import flexilims as flm
 import mcms
 import resources.parameters as prm
+from resources.projects import PROJECT_IDS
+
+
+def _format_project(project_id):
+    if project_id in PROJECT_IDS:
+        return PROJECT_IDS[project_id]
+    if project_id is None or len(project_id) != 24:
+        raise AttributeError('Invalid project: "%s"' % project_id)
+    return project_id
 
 
 def add_mouse(mouse_name, project_id, mcms_animal_name=None, flexilims_username=None, mcms_username=None):
     """Check if a mouse is already in the database and add it if it isn't"""
 
+    project_id = _format_project(project_id)
     if flexilims_username is None:
         flexilims_username = prm.FLEXILIMS_USERNAME
     session = flm.Flexilims(username=flexilims_username, project_id=project_id)
@@ -40,9 +49,9 @@ def get_mice(project_id=None, username=None, session=None):
     if session is None:
         if username is None:
             username = prm.FLEXILIMS_USERNAME
-        session = flm.Flexilims(username)
+        session = flm.Flexilims(username, project_id=project_id)
 
-    mice = session.get(datatype='mouse', project_id=project_id)
+    mice = session.get(datatype='mouse')
     # make into a nice df
     reserved_keywords = ['id', 'type', 'name', 'incrementalId']
     for mouse in mice:
@@ -54,9 +63,3 @@ def get_mice(project_id=None, username=None, session=None):
     if len(mice):
         mice.set_index('name', drop=False, inplace=True)
     return mice
-
-
-if __name__ == '__main__':
-    proj_id = '606df5af08df4d77c72c9b05'
-    mdf = add_mouse(project_id=proj_id, mouse_name='PZAH4.1c')
-    print('done')

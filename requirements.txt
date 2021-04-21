@@ -1,7 +1,9 @@
-pytest~=6.2.2
+pytest
 coverage
-requests~=2.25.1
+requests
 
-webbot~=0.34
-pandas~=1.2.3
+webbot
+pandas
 numpy~=1.19.2
+click
+setuptools
