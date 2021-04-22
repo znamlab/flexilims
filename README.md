@@ -61,11 +61,3 @@ New entries can be created with the post request. Once again, it's a simple call
 now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     sess.post(datatype='mouse', name='test_ran_on_%s' % now, attributes=dict(age=12))
 ```
-
-# mcms
-
-This package handle semi-automatic import of data from mcms. It is based on code from Tom's Child.
-
-## Mouse info
-
-For now a single function exist: `download_mouse_info`. It will log in to mcms, look for a mouse based on it's name and download a one-line csv with the info about that mouse.

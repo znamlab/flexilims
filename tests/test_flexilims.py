@@ -24,6 +24,7 @@ def test_session_creation():
 def test_get_req():
     sess = flm.Flexilims(username)
     sess.get(datatype='session', project_id=project_id)
+    sess.get(datatype='mouse', project_id=project_id)
 
 
 def test_get_error():
@@ -33,7 +34,7 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  type InvalidType is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='session', project_id='NotAProject')
-    assert exc_info.value.args[0] == 'Invalid input. Unknown project_id (must be the hexadecimal ID)'
+    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a hexademical value'
 
 
 def test_put_req():
@@ -56,22 +57,23 @@ def test_post_req():
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
     sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
-              attributes=dict(session='605a36c53b38df2abd7757e9', trial=1),
-              origin_id='605a36c53b38df2abd7757e9')
+              attributes=dict(session='608157fc6943c91ff47e831a', trial=1),
+              origin_id='608157fc6943c91ff47e831a')
 
 
 def test_post_error():
     sess = flm.Flexilims(username)
-    with pytest.raises(OSError) as exc_info:
+    with pytest.raises(AssertionError):
         sess.post(datatype='mouse', project_id=None, name='temp', attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  project not found'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='NotAType', project_id=project_id, name='temp', attributes={})
     assert exc_info.value.args[0] == 'Error 400:  type provided is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='mouse', project_id='InvalidProject', name='temp', attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  project id not valid, please provide a hexademical value'
+    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a hexademical value'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=project_id, name='test_ran_on_%s_with_origin' % 'now',
-                  attributes=dict(), origin_id='605a36c53b38df2abd7757e9', other_relations='605a36be3b38df2abd7757e8')
-    assert exc_info.value.args[0] == 'Unhandled error. Contact Computing STP'
+                  attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9',
+                  other_relations='605a36be3b38df2abd7757e8')
+    err_msg = "Error 400:  allowed fields are [type, name, origin_id, project_id, attributes, custom_entities]"
+    assert exc_info.value.args[0] == err_msg
