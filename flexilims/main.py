@@ -4,6 +4,7 @@ import re
 import requests
 import warnings
 from requests.auth import HTTPBasicAuth
+import json
 
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 
@@ -19,7 +20,7 @@ class Flexilims(object):
         self.create_session()
 
     def create_session(self):
-        """Create a session with authentification information"""
+        """Create a session with authentication information"""
         if self.session is not None:
             print('Session already exists.')
             return
@@ -32,7 +33,7 @@ class Flexilims(object):
         self.log.append('Session created for user %s' % self.username)
 
     def get(self, datatype, project_id=None):
-
+        """Get all the entries of one datatype belonging to a project"""
         if project_id is None:
             project_id = self.project_id
 
@@ -40,18 +41,18 @@ class Flexilims(object):
         self.log.append(rep.content)
 
         if rep.ok and (rep.status_code == 200):
-            return rep.json()
-        elif rep.ok:
+            return self._clean_json(rep)
+
+        # error handling:
+        if rep.ok:
             warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
-            warnings.warn('Will return the response object')
+            warnings.warn('Will return the response object without interpreting it.')
+            warnings.warn('see response.json() to (hopefully) get the data.')
             return rep
         if rep.status_code == 400:
             error_dict = parse_error(rep.content)
             raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
-
-        if rep.status_code == 500:
-            if "invalid hexadecimal representation of an ObjectId:" in rep.content.decode('utf8'):
-                raise IOError('Invalid input. Unknown project_id (must be the hexadecimal ID)')
+        raise IOError('Unknown error with status code %d' % rep.status_code)
 
     def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None):
         """Update existing object"""
@@ -80,7 +81,7 @@ class Flexilims(object):
 
         if project_id is None:
             project_id = self.project_id
-
+        assert isinstance(project_id, str)
         assert isinstance(attributes, dict)
         json = dict(type=datatype, name=name, project_id=project_id,
                     attributes=attributes)
@@ -92,15 +93,25 @@ class Flexilims(object):
         rep = self.session.post(self.base_url + 'save', json=json)
 
         if rep.ok and (rep.status_code == 200):
-            return rep.json()
+            return self._clean_json(rep)
         elif rep.ok:
-            warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
-            warnings.warn('Will return the response object')
+            msg = 'Warning. Seems ok but I had an unknown status code %s' % rep.status_code
+            msg += '\nWill return the response object'
+            warnings.warn(msg)
             return rep
         if rep.status_code == 500:
             raise IOError('Unhandled error. Contact Computing STP')
         error_dict = parse_error(rep.content)
         raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
+
+    @staticmethod
+    def _clean_json(rep):
+        try:
+            return rep.json()
+        except json.decoder.JSONDecodeError:
+            warnings.warn('Temporary fix for dates in json')
+            txt = re.sub(r'new Date\((\d*)\)', r'"\1"', rep.content.decode(rep.encoding))
+            return json.loads(txt)
 
 
 def parse_error(error_message):
