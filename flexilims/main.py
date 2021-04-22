@@ -76,7 +76,8 @@ class Flexilims(object):
         error_dict = parse_error(rep.content)
         raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
 
-    def post(self, datatype, name, attributes, project_id=None, origin_id=None, other_relations=None):
+    def post(self, datatype, name, attributes, project_id=None, origin_id=None, other_relations=None,
+             strict_validation=True):
         """Create a new entry in the database"""
 
         if project_id is None:
@@ -90,7 +91,10 @@ class Flexilims(object):
         if other_relations is not None:
             json['other_relations'] = other_relations
 
-        rep = self.session.post(self.base_url + 'save', json=json)
+        address = 'save'
+        if strict_validation:
+            address += '?strict_validation=true'
+        rep = self.session.post(self.base_url + address, json=json)
 
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
