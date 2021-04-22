@@ -9,4 +9,7 @@ setup(
     author_email='antonin.blot@gmail.com',
     description='Python wrapper for Flexilims API',
     packages=find_packages(),
+    install_requires=[
+          'requests',
+      ],
 )
