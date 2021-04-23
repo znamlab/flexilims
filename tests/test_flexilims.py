@@ -13,22 +13,20 @@ PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
 def test_token():
     tok = flm.get_token(USERNAME, password)
     assert len(tok)
-    tok = flm.get_token(USERNAME)
-    assert len(tok)
 
 
 def test_session_creation():
-    flm.Flexilims(USERNAME)
+    flm.Flexilims(USERNAME, password)
 
 
 def test_get_req():
-    sess = flm.Flexilims(USERNAME)
+    sess = flm.Flexilims(USERNAME, password)
     sess.get(datatype='session', project_id=PROJECT_ID)
     sess.get(datatype='mouse', project_id=PROJECT_ID)
 
 
 def test_get_error():
-    sess = flm.Flexilims(USERNAME)
+    sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='InvalidType', project_id=PROJECT_ID)
     assert exc_info.value.args[0] == 'Error 400:  type InvalidType is not defined'
@@ -38,7 +36,7 @@ def test_get_error():
 
 
 def test_put_req():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     # get to know how many session there are
     n_sess = len(sess.get(datatype='session'))
     rep = sess.put(datatype='session', update_key='test_attribute',
@@ -53,7 +51,7 @@ def test_put_req():
 
 
 def test_post_req():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
     sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
@@ -62,7 +60,7 @@ def test_post_req():
 
 
 def test_post_error():
-    sess = flm.Flexilims(USERNAME)
+    sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(IOError) as exc:
         sess.post(datatype='recording', name='randomname', project_id=PROJECT_ID,
                   attributes=dict(random_attribute='should fail'))

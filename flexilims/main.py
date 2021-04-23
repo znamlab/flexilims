@@ -11,22 +11,22 @@ BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 
 class Flexilims(object):
 
-    def __init__(self, username, project_id=None, base_url=BASE_URL):
+    def __init__(self, username, password, project_id=None, base_url=BASE_URL):
         self.username = username
         self.base_url = base_url
         self.session = None
         self.project_id = project_id
         self.log = []
-        self.create_session()
+        self.create_session(password)
 
-    def create_session(self):
+    def create_session(self, password):
         """Create a session with authentication information"""
         if self.session is not None:
             print('Session already exists.')
             return
 
         session = requests.Session()
-        tok = get_token(self.username)
+        tok = get_token(self.username, password)
 
         session.headers.update(tok)
         self.session = session
@@ -52,6 +52,8 @@ class Flexilims(object):
         if rep.status_code == 400:
             error_dict = parse_error(rep.content)
             raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
+        if rep.status_code == 404:
+            raise IOError('Page not found is the base url: %s?' % (self.base_url + 'get'))
         raise IOError('Unknown error with status code %d' % rep.status_code)
 
     def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None):
@@ -130,33 +132,15 @@ def parse_error(error_message):
     return {name: v for name, v in zip(('type', 'message', 'description'), m.groups())}
 
 
-def get_token(username, password=None):
+def get_token(username, password):
     """Login to the database and create headers with the proper token
-
-    If the password is not provided, we will attempt to read it from the
-    password_dict found in secret_password.py
     """
-
-    if password is None:
-        try:
-            from flexilims import secret_password
-        except ImportError:
-            print('Cannot load flexilims.secret_password')
-            return
-        password = secret_password.flexilims_passwords[username]
 
     rep = requests.post(BASE_URL + 'authenticate', auth=HTTPBasicAuth(username, password))
     if rep.ok:
         token = rep.text
     else:
-        rep.raise_for_status()
+        raise IOError('Failed to autheticate. Got an error %d' % rep.status_code)
 
     headers = {"Authorization": "Bearer %s" % token}
     return headers
-
-
-if __name__ == '__main__':
-    sess = Flexilims('blota')
-    sess.project_id = '605a11a13b38df2abd7756a1'
-    rep = sess.get(datatype='session')
-    print('Done')
