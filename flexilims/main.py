@@ -32,12 +32,13 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datatype, project_id=None):
-        """Get all the entries of one datatype belonging to a project"""
+    def get(self, datadict, project_id=None):
+        """Get all the entries specified by the fields in datadict"""
         if project_id is None:
             project_id = self.project_id
 
-        rep = self.session.get(self.base_url + 'get', params=dict(type=datatype, project_id=project_id))
+        datadict['project_id'] = project_id
+        rep = self.session.get(self.base_url + 'get', params=datadict)
         self.log.append(rep.content)
 
         if rep.ok and (rep.status_code == 200):
@@ -122,7 +123,7 @@ class Flexilims(object):
 
 def parse_error(error_message):
     """Parse the error message from flexilims bad request
-    
+
     The messages are html pages with a bold "Type", "Message" and "Description" fields
     """
     if isinstance(error_message, bytes):
