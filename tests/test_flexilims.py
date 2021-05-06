@@ -18,11 +18,14 @@ def test_token():
 def test_session_creation():
     flm.Flexilims(USERNAME, password)
 
-
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password)
     sess.get(datatype='session', project_id=PROJECT_ID)
-    sess.get(datatype='mouse', project_id=PROJECT_ID)
+    r = sess.get(datatype='recording', project_id=PROJECT_ID)
+    assert len(r) > 1
+    r2 = sess.get(datatype='recording', project_id=PROJECT_ID, query_key='protocol',
+                  query_value='test_prot')
+    assert len(r2) == 1
 
 
 def test_get_error():
@@ -48,6 +51,8 @@ def test_put_req():
     rep = sess.put(datatype='session', query_key='test_uniq', query_value='unique',
                    update_key='test_uniq', update_value='unique')
     assert rep == 'updated successfully 1 items of type session with test_uniq=unique'
+    rep = sess.put(datatype='recording', query_key='id', query_value='6093e0fa2597df357fa24887',
+                   update_key='test_update_by_id', update_value='updated_id_6093e0fa2597df357fa24887')
 
 
 def test_post_req():

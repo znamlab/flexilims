@@ -32,14 +32,21 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datadict, project_id=None):
-        """Get all the entries specified by the fields in datadict"""
+    def get(self, datatype, query_key=None, query_value=None, project_id=None):
+        """Get all the entries of type datatype in the current project
+
+        Query can be further filtered by one attribute.
+        For now only string attributes can be used for filtering
+        """
         if project_id is None:
             project_id = self.project_id
 
-        datadict['project_id'] = project_id
-        rep = self.session.get(self.base_url + 'get', params=datadict)
-        self.log.append(rep.content)
+        params = dict(type=datatype, project_id=project_id)
+        if query_key is not None:
+            params['query_key'] = query_key
+            params['query_value'] = query_value
+
+        rep = self.session.get(self.base_url + 'get', params=params)
 
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
@@ -61,11 +68,11 @@ class Flexilims(object):
         """Update existing object"""
         if project_id is None:
             project_id = self.project_id
-        params = dict(type=datatype, project_id=project_id, updateKey=update_key, updateValue=update_value)
+        params = dict(type=datatype, project_id=project_id, update_key=update_key, update_value=update_value)
         if query_key is not None:
-            params['queryKey'] = query_key
+            params['query_key'] = query_key
         if query_value is not None:
-            params['queryValue'] = query_value
+            params['query_value'] = query_value
 
         rep = self.session.put(self.base_url + 'update', params=params)
         self.log.append(rep.content)
