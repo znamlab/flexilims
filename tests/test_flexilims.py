@@ -51,17 +51,24 @@ def test_put_req():
     rep = sess.put(datatype='session', query_key='test_uniq', query_value='unique',
                    update_key='test_uniq', update_value='unique')
     assert rep == 'updated successfully 1 items of type session with test_uniq=unique'
+    rep = sess.put(datatype='dataset', query_key='path', query_value='unique/fake/path',
+                   update_key='is_raw', update_value='yes')
+    assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
     rep = sess.put(datatype='recording', query_key='id', query_value='6093e0fa2597df357fa24887',
-                   update_key='test_update_by_id', update_value='updated_id_6093e0fa2597df357fa24887')
+                   update_key='test_update_by_id', update_value='updated_id_6093e0f...')
+    assert rep == 'updated successfully 1 items of type recording with test_update_by_id=updated_id_6093e0f...'
 
 
 def test_post_req():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
-    sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
-              attributes=dict(session='608157fc6943c91ff47e831a', trial=1),
+    rep = sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
+    rep = sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
+              attributes=dict(session=rep['id'], trial=1),
               origin_id='608157fc6943c91ff47e831a', strict_validation=False)
+    rep = sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
+              attributes=dict(datatype='camera', path='random'),
+              origin_id=rep['id'], strict_validation=True)
 
 
 def test_post_error():
@@ -81,6 +88,22 @@ def test_post_error():
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9',
-                  other_relations='605a36be3b38df2abd7757e8')
+                  other_relations='undefined')
     err_msg = "Error 400:  allowed fields are [type, name, origin_id, project_id, attributes, custom_entities]"
+    assert exc_info.value.args[0] == err_msg
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
+                  attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9')
+    assert exc_info.value.args[0] == 'Error 400:  origin not found'
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
+                      attributes=dict(rec=10), origin_id='609407f92597df357fa2489d')
+    assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in lab settings'
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p', attributes=dict())
+    err_msg = 'Error 400:  &#39;datatype&#39; is a necessary attribute for dataset'
+    assert exc_info.value.args[0] == err_msg
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2prandom', attributes=dict(datatype='camOra'))
+    err_msg = 'Error 400:  &#39;camOra&#39; is not a valid value for datatype'
     assert exc_info.value.args[0] == err_msg

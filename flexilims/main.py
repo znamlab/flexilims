@@ -6,6 +6,7 @@ import warnings
 from requests.auth import HTTPBasicAuth
 import json
 
+
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 
 
@@ -64,7 +65,8 @@ class Flexilims(object):
             raise IOError('Page not found is the base url: %s?' % (self.base_url + 'get'))
         raise IOError('Unknown error with status code %d' % rep.status_code)
 
-    def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None):
+    def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
+            strict_validation=False):
         """Update existing object"""
         if project_id is None:
             project_id = self.project_id
@@ -74,7 +76,11 @@ class Flexilims(object):
         if query_value is not None:
             params['query_value'] = query_value
 
-        rep = self.session.put(self.base_url + 'update', params=params)
+        address = 'update'
+        if strict_validation:
+            address += '?strict_validation=true'
+            raise NotImplementedError
+        rep = self.session.put(self.base_url + address, params=params)
         self.log.append(rep.content)
 
         if rep.ok and (rep.status_code == 200):
@@ -94,17 +100,17 @@ class Flexilims(object):
             project_id = self.project_id
         assert isinstance(project_id, str)
         assert isinstance(attributes, dict)
-        json = dict(type=datatype, name=name, project_id=project_id,
+        json_data = dict(type=datatype, name=name, project_id=project_id,
                     attributes=attributes)
         if origin_id is not None:
-            json['origin_id'] = origin_id
+            json_data['origin_id'] = origin_id
         if other_relations is not None:
-            json['other_relations'] = other_relations
+            json_data['other_relations'] = other_relations
 
         address = 'save'
         if strict_validation:
             address += '?strict_validation=true'
-        rep = self.session.post(self.base_url + address, json=json)
+        rep = self.session.post(self.base_url + address, json=json_data)
 
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
