@@ -143,8 +143,10 @@ def parse_error(error_message):
 def get_token(username, password):
     """Login to the database and create headers with the proper token
     """
-
-    rep = requests.post(BASE_URL + 'authenticate', auth=HTTPBasicAuth(username, password))
+    try:
+        rep = requests.post(BASE_URL + 'authenticate', auth=HTTPBasicAuth(username, password))
+    except requests.exceptions.ConnectionError:
+        raise requests.exceptions.ConnectionError("Cannot connect to flexilims. Are you on the Crick network?")
     if rep.ok:
         token = rep.text
     else:
