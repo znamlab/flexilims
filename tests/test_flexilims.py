@@ -54,6 +54,8 @@ def test_put_req():
     rep = sess.put(datatype='dataset', query_key='path', query_value='unique/fake/path',
                    update_key='is_raw', update_value='yes')
     assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
+
+def test_update_by_id():
     rep = sess.put(datatype='recording', query_key='id', query_value='6093e0fa2597df357fa24887',
                    update_key='test_update_by_id', update_value='updated_id_6093e0f...')
     assert rep == 'updated successfully 1 items of type recording with test_update_by_id=updated_id_6093e0f...'
