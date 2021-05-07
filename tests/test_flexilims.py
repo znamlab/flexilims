@@ -18,6 +18,7 @@ def test_token():
 def test_session_creation():
     flm.Flexilims(USERNAME, password)
 
+
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password)
     sess.get(datatype='session', project_id=PROJECT_ID)
@@ -54,6 +55,10 @@ def test_put_req():
     rep = sess.put(datatype='dataset', query_key='path', query_value='unique/fake/path',
                    update_key='is_raw', update_value='yes')
     assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
+
+
+def test_update_by_id():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     rep = sess.put(datatype='recording', query_key='id', query_value='6093e0fa2597df357fa24887',
                    update_key='test_update_by_id', update_value='updated_id_6093e0f...')
     assert rep == 'updated successfully 1 items of type recording with test_update_by_id=updated_id_6093e0f...'
@@ -64,11 +69,11 @@ def test_post_req():
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     rep = sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
     rep = sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
-              attributes=dict(session=rep['id'], trial=1),
-              origin_id='608157fc6943c91ff47e831a', strict_validation=False)
+                    attributes=dict(session=rep['id'], trial=1),
+                    origin_id='608157fc6943c91ff47e831a', strict_validation=False)
     rep = sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
-              attributes=dict(datatype='camera', path='random'),
-              origin_id=rep['id'], strict_validation=True)
+                    attributes=dict(datatype='camera', path='random'),
+                    origin_id=rep['id'], strict_validation=True)
 
 
 def test_post_error():
@@ -97,7 +102,7 @@ def test_post_error():
     assert exc_info.value.args[0] == 'Error 400:  origin not found'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
-                      attributes=dict(rec=10), origin_id='609407f92597df357fa2489d')
+                  attributes=dict(rec=10), origin_id='609407f92597df357fa2489d')
     assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in lab settings'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p', attributes=dict())
