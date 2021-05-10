@@ -33,7 +33,8 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datatype, query_key=None, query_value=None, project_id=None):
+    def get(self, datatype, query_key=None, query_value=None, project_id=None,
+            id=None, name=None, origin_id=None):
         """Get all the entries of type datatype in the current project
 
         Query can be further filtered by one attribute.
@@ -46,6 +47,9 @@ class Flexilims(object):
         if query_key is not None:
             params['query_key'] = query_key
             params['query_value'] = query_value
+        if id is not None: params['id'] = id
+        if name is not None: params['name'] = name
+        if origin is not None: params['origin_id'] = origin_id
 
         rep = self.session.get(self.base_url + 'get', params=params)
 
