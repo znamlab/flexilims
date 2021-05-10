@@ -49,7 +49,7 @@ class Flexilims(object):
             params['query_value'] = query_value
         if id is not None: params['id'] = id
         if name is not None: params['name'] = name
-        if origin is not None: params['origin_id'] = origin_id
+        if origin_id is not None: params['origin_id'] = origin_id
 
         rep = self.session.get(self.base_url + 'get', params=params)
 
