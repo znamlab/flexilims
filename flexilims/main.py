@@ -6,7 +6,6 @@ import warnings
 from requests.auth import HTTPBasicAuth
 import json
 
-
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 
 
@@ -56,6 +55,10 @@ class Flexilims(object):
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
 
+        self.handle_error(rep)
+
+    def handle_error(self, rep):
+        """handles responses that have a status code != 200"""
         # error handling:
         if rep.ok:
             warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
@@ -89,12 +92,7 @@ class Flexilims(object):
 
         if rep.ok and (rep.status_code == 200):
             return rep.content.decode('utf8')
-        elif rep.ok:
-            warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
-            warnings.warn('Will return the response object')
-            return rep
-        error_dict = parse_error(rep.content)
-        raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
+        self.handle_error(rep)
 
     def post(self, datatype, name, attributes, project_id=None, origin_id=None, other_relations=None,
              strict_validation=True):
@@ -118,15 +116,7 @@ class Flexilims(object):
 
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
-        elif rep.ok:
-            msg = 'Warning. Seems ok but I had an unknown status code %s' % rep.status_code
-            msg += '\nWill return the response object'
-            warnings.warn(msg)
-            return rep
-        if rep.status_code == 500:
-            raise IOError('Unhandled error. Contact Computing STP')
-        error_dict = parse_error(rep.content)
-        raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
+        self.handle_error(rep)
 
     @staticmethod
     def _clean_json(rep):
