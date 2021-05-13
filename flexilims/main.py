@@ -76,7 +76,11 @@ class Flexilims(object):
         self.handle_error(rep)
 
     def get_children(self, id=None):
-        """Get the children of one entry based on its hexadecimal id"""
+        """Get the children of one entry based on its hexadecimal id
+
+        :param id: hexadecimal ID of the parent
+        :return: list of dict with one element per child
+        """
         rep = self.session.get(self.base_url + 'get-children', params=dict(id=id))
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
