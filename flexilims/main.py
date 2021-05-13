@@ -101,7 +101,7 @@ class Flexilims(object):
         assert isinstance(project_id, str)
         assert isinstance(attributes, dict)
         json_data = dict(type=datatype, name=name, project_id=project_id,
-                    attributes=attributes)
+                         attributes=attributes)
         if origin_id is not None:
             json_data['origin_id'] = origin_id
         if other_relations is not None:

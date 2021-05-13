@@ -19,6 +19,23 @@ def test_session_creation():
     flm.Flexilims(USERNAME, password)
 
 
+def test_unvalid_request():
+    sess = flm.Flexilims(USERNAME, password)
+    rep = sess.session.get(sess.base_url + 'get', params=dict(type='recording', randomstuff='randomtext',
+                                                              project_id=PROJECT_ID))
+    assert rep.status_code == 400
+    err = flm.main.parse_error(rep.content)
+    get_valid_fields = '[type, name, origin_id, project_id, attributes, custom_entities, id, date_created, created_by' \
+                       ', date_created_operator, query_key, query_value, strict_validation]'
+    err_msg = ' randomstuff is not valid. Valid fields are '
+    assert err['message'] == err_msg + get_valid_fields
+    rep = sess.session.put(sess.base_url + 'update', params=dict(type='recording', randomstuff='randomtext',
+                                                                 project_id=PROJECT_ID, update_key='test_uniq',
+                                                                 update_value='test_bad'))
+    assert rep.status_code == 400
+    err = flm.main.parse_error(rep.content)
+
+
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password)
     sess.get(datatype='session', project_id=PROJECT_ID)
@@ -36,7 +53,7 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  type InvalidType is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='session', project_id='NotAProject')
-    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a hexademical value'
+    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a valid hexademical value'
 
 
 def test_put_req():
@@ -71,8 +88,8 @@ def test_post_req():
     rep = sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
                     attributes=dict(session=rep['id'], trial=1),
                     origin_id='608157fc6943c91ff47e831a', strict_validation=False)
-    rep = sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
-                    attributes=dict(datatype='camera', path='random'),
+    sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
+                    attributes=dict(dataset_type='camera', path='random'),
                     origin_id=rep['id'], strict_validation=True)
 
 
@@ -89,12 +106,14 @@ def test_post_error():
     assert exc_info.value.args[0] == 'Error 400:  type provided is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='mouse', project_id='InvalidProject', name='temp', attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a hexademical value'
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexademical value for project_id'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9',
                   other_relations='undefined')
-    err_msg = "Error 400:  allowed fields are [type, name, origin_id, project_id, attributes, custom_entities]"
+    err_msg = 'Error 400:  other_relations is not valid. Valid fields are [type, name, '\
+              'origin_id, project_id, attributes, custom_entities, id, date_created, '\
+              'created_by, date_created_operator, query_key, query_value, strict_validation]'
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
@@ -106,9 +125,9 @@ def test_post_error():
     assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in lab settings'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p', attributes=dict())
-    err_msg = 'Error 400:  &#39;datatype&#39; is a necessary attribute for dataset'
+    err_msg = 'Error 400:  &#39;path&#39; is a necessary attribute for dataset'
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2prandom', attributes=dict(datatype='camOra'))
-    err_msg = 'Error 400:  &#39;camOra&#39; is not a valid value for datatype'
+    err_msg = 'Error 400:  &#39;datatype&#39; is not defined in lab settings'
     assert exc_info.value.args[0] == err_msg
