@@ -38,12 +38,29 @@ def test_unvalid_request():
 
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password)
+    # basic test
     sess.get(datatype='session', project_id=PROJECT_ID)
     r = sess.get(datatype='recording', project_id=PROJECT_ID)
     assert len(r) > 1
-    r2 = sess.get(datatype='recording', project_id=PROJECT_ID, query_key='protocol',
-                  query_value='test_prot')
-    assert len(r2) == 1
+    # test all filtering arguments:
+    r = sess.get(datatype='recording', project_id=PROJECT_ID, query_key='protocol',
+                 query_value='test_prot')
+    assert len(r) == 1
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, id='609d2d856d12db1b47d86486')
+    assert len(r) == 1
+    r = sess.get(datatype='mouse', project_id=PROJECT_ID, id='609d2d856d12db1b47d86486')
+    assert len(r) == 0
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, created_by='Petr Znamenskiy')
+    assert len(r) > 1
+    cutoff = 1620897685816
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff, date_created_operator='gt')
+    r2 = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff)
+    assert (len(r) == len(r2)) and all([el in r2 for el in r])
+    assert all(el['dateCreated'] >= cutoff for el in r)
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff, date_created_operator='lt')
+    assert all(el['dateCreated'] <= cutoff for el in r)
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, name='test_ran_on_20210513_144540_dataset')
+    assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
 
 
 def test_get_error():
@@ -53,7 +70,11 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  type InvalidType is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='session', project_id='NotAProject')
-    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a valid hexademical value'
+    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a valid hexadecimal value'
+    with pytest.raises(OSError) as exc_info:
+        sess.get(datatype='session', project_id=PROJECT_ID, id='unvalid')
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for id'
+
 
 
 def test_get_children():
@@ -65,7 +86,7 @@ def test_get_children_error():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
         sess.get_children(id='unvalid_id')
-    assert exc_info.value.args[0] == 'Error 400:  sample_id not valid, please provide a hexademical value'
+    assert exc_info.value.args[0] == 'Error 400:  sample_id not valid, please provide a hexadecimal value'
 
 
 def test_put_req():
@@ -118,7 +139,7 @@ def test_post_error():
     assert exc_info.value.args[0] == 'Error 400:  type provided is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='mouse', project_id='InvalidProject', name='temp', attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexademical value for project_id'
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for project_id'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9',

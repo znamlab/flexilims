@@ -32,23 +32,41 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datatype, query_key=None, query_value=None, project_id=None,
-            id=None, name=None, origin_id=None):
+    def get(self, datatype, project_id=None, query_key=None, query_value=None, created_by=None,
+            id=None, name=None, origin_id=None, date_created=None, date_created_operator=None):
         """Get all the entries of type datatype in the current project
 
-        Query can be further filtered by one attribute.
-        For now only string attributes can be used for filtering
+        :param datatype: flexilims type of the object(s)
+        :param project_id: hexadecimal id of the project. If None, will use the session default
+
+        Optional argument to filter the results:
+        :param id: flexilims id of the object.
+        :param name: name of the object
+        :param query_key: attribute to filter the results. Filtering is only possible with one attribute
+        :param query_value: valid value for attribute name `query_key`
+        :param origin_id: hexadecimal id of the origin of the object
+        :param created_by: name of the user who created the object
+        :param date_created: cutoff date. Only elements with date creation greater (default) or lower than this date
+                             will be return (see date_created_operator), in unix time since epoch.
+        :param date_created_operator: 'gt' or 'lt' for greater or lower than (default to 'gt') both include exact match
+
+        :return: a list of dictionary with one element per valid flexilimns entry.
         """
+
         if project_id is None:
             project_id = self.project_id
-
         params = dict(type=datatype, project_id=project_id)
-        if query_key is not None:
-            params['query_key'] = query_key
-            params['query_value'] = query_value
-        if id is not None: params['id'] = id
-        if name is not None: params['name'] = name
-        if origin_id is not None: params['origin_id'] = origin_id
+        if date_created_operator is not None:
+            assert(date_created_operator in ('gt', 'lt'))
+        elif date_created is not None:
+            date_created_operator = 'gt'
+
+        # add all non-None arguments in the list
+        args = ('query_key', 'query_value', 'id', 'name', 'origin_id', 'date_created', 'date_created_operator',
+                'created_by')
+        for arg_name in args:
+            if locals()[arg_name] is not None:
+                params[arg_name] = locals()[arg_name]
 
         rep = self.session.get(self.base_url + 'get', params=params)
 
