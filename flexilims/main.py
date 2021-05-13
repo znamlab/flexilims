@@ -57,20 +57,13 @@ class Flexilims(object):
 
         self.handle_error(rep)
 
-    def handle_error(self, rep):
-        """handles responses that have a status code != 200"""
-        # error handling:
-        if rep.ok:
-            warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
-            warnings.warn('Will return the response object without interpreting it.')
-            warnings.warn('see response.json() to (hopefully) get the data.')
-            return rep
-        if rep.status_code == 400:
-            error_dict = parse_error(rep.content)
-            raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
-        if rep.status_code == 404:
-            raise IOError('Page not found is the base url: %s?' % (self.base_url + 'get'))
-        raise IOError('Unknown error with status code %d' % rep.status_code)
+    def get_children(self, id=None):
+        """Get the children of one entry based on its hexadecimal id"""
+        rep = self.session.get(self.base_url + 'get-children', params=dict(id=id))
+        if rep.ok and (rep.status_code == 200):
+            return self._clean_json(rep)
+
+        self.handle_error(rep)
 
     def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
             strict_validation=False):
@@ -117,6 +110,21 @@ class Flexilims(object):
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
         self.handle_error(rep)
+
+    def handle_error(self, rep):
+        """handles responses that have a status code != 200"""
+        # error handling:
+        if rep.ok:
+            warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
+            warnings.warn('Will return the response object without interpreting it.')
+            warnings.warn('see response.json() to (hopefully) get the data.')
+            return rep
+        if rep.status_code == 400:
+            error_dict = parse_error(rep.content)
+            raise IOError('Error %d: %s' % (rep.status_code, error_dict['message']))
+        if rep.status_code == 404:
+            raise IOError('Page not found is the base url: %s?' % (self.base_url + 'get'))
+        raise IOError('Unknown error with status code %d' % rep.status_code)
 
     @staticmethod
     def _clean_json(rep):

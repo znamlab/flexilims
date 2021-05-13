@@ -56,6 +56,18 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a valid hexademical value'
 
 
+def test_get_children():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess.get_children(id='60803df36943c91ff47e80a8')
+
+
+def test_get_children_error():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    with pytest.raises(OSError) as exc_info:
+        sess.get_children(id='unvalid_id')
+    assert exc_info.value.args[0] == 'Error 400:  sample_id not valid, please provide a hexademical value'
+
+
 def test_put_req():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     # get to know how many session there are
