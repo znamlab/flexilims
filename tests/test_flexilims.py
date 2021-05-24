@@ -5,6 +5,7 @@ import datetime
 import flexilims as flm
 from flexilims.secret_password import flexilims_passwords
 
+BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 USERNAME = 'blota'
 password = flexilims_passwords[USERNAME]
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
@@ -29,15 +30,10 @@ def test_unvalid_request():
                        ', date_created_operator, query_key, query_value, strict_validation]'
     err_msg = ' randomstuff is not valid. Valid fields are '
     assert err['message'] == err_msg + get_valid_fields
-    rep = sess.session.put(sess.base_url + 'update', params=dict(type='recording', randomstuff='randomtext',
-                                                                 project_id=PROJECT_ID, update_key='test_uniq',
-                                                                 update_value='test_bad'))
-    assert rep.status_code == 400
-    err = flm.main.parse_error(rep.content)
 
 
 def test_get_req():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=BASE_URL)
     # basic test
     sess.get(datatype='session', project_id=PROJECT_ID)
     r = sess.get(datatype='recording', project_id=PROJECT_ID)
@@ -63,6 +59,12 @@ def test_get_req():
     assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
 
 
+def test_get_without_datatype():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    r = sess.get(project_id=PROJECT_ID, name='test_ran_on_20210513_144540_dataset')
+    assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
+
+
 def test_get_error():
     sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(OSError) as exc_info:
@@ -76,7 +78,6 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for id'
 
 
-
 def test_get_children():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     sess.get_children(id='60803df36943c91ff47e80a8')
@@ -86,10 +87,52 @@ def test_get_children_error():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
         sess.get_children(id='unvalid_id')
-    assert exc_info.value.args[0] == 'Error 400:  sample_id not valid, please provide a hexadecimal value'
+    assert exc_info.value.args[0] == 'Error 400:  id not valid, please provide a hexadecimal value'
+
+
+def test_update_one_errors():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    with pytest.raises(OSError) as exc_info:
+        sess.update_one(id='609cee832597df357fa25245', datatype='recording')
+    assert exc_info.value.args[0] == 'Error 400:  &#39;test_uniq&#39; is not defined in lab settings'
+    with pytest.raises(OSError) as exc_info:
+        sess.update_one(id='609cee832597df357fa25245', name='R101501', datatype='recording', strict_validation=False)
+    assert exc_info.value.args[0] == 'Error 400:  Check sample name. Sample R101501 already exist in the project test'
+    with pytest.raises(OSError) as exc_info:
+        sess.update_one(id='609cee832597df357fa25245', origin_id='randomness', datatype='recording',
+                        strict_validation=False)
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for origin_id'
+
+
+def test_update_one():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    entity_id = '609cee832597df357fa25245'
+    original = sess.get(datatype='recording', id=entity_id)[0]
+    # update nothing
+    rep = sess.update_one(id=entity_id, datatype='recording', strict_validation=False)
+    assert rep == original
+    rep = sess.update_one(id=entity_id, name='R101501_new_name', datatype='recording',
+                          strict_validation=False)
+    assert rep['name'] == 'R101501_new_name'
+    # put back original name
+    sess.update_one(id=entity_id, name='R101501', datatype='recording', strict_validation=False)
+    orid = original['origin_id']
+    other_id = '60803df36943c91ff47e80a8'
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False)
+    assert rep['origin_id'] == other_id
+    # put back original id
+    sess.update_one(id=entity_id, origin_id=orid, datatype='recording', strict_validation=False)
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
+                          attributes=dict(test_uniq='new_test'))
+    assert rep['attributes']['test_uniq'] == 'new_test'
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
+                          attributes=dict(nested=dict(level='new_test')))
+    assert isinstance(rep['attributes']['nested'], dict)
+    assert rep['attributes']['nested']['level'] == 'new_test'
 
 
 def test_put_req():
+    raise DeprecationWarning
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     # get to know how many session there are
     n_sess = len(sess.get(datatype='session'))
@@ -105,13 +148,6 @@ def test_put_req():
     rep = sess.put(datatype='dataset', query_key='path', query_value='unique/fake/path',
                    update_key='is_raw', update_value='yes')
     assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
-
-
-def test_update_by_id():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
-    rep = sess.put(datatype='recording', query_key='id', query_value='6093e0fa2597df357fa24887',
-                   update_key='test_update_by_id', update_value='updated_id_6093e0f...')
-    assert rep == 'updated successfully 1 items of type recording with test_update_by_id=updated_id_6093e0f...'
 
 
 def test_post_req():

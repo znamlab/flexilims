@@ -10,7 +10,6 @@ BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 
 
 class Flexilims(object):
-
     def __init__(self, username, password, project_id=None, base_url=BASE_URL):
         self.username = username
         self.base_url = base_url
@@ -32,7 +31,7 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datatype, project_id=None, query_key=None, query_value=None, created_by=None,
+    def get(self, datatype=None, project_id=None, query_key=None, query_value=None, created_by=None,
             id=None, name=None, origin_id=None, date_created=None, date_created_operator=None):
         """Get all the entries of type datatype in the current project
 
@@ -85,6 +84,37 @@ class Flexilims(object):
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
 
+        self.handle_error(rep)
+
+    def update_one(self, id, datatype, origin_id=None, name=None, attributes=None, strict_validation=True,
+                   project_id=None):
+        """Update one existing entity
+
+        Args:
+            id: hexadecimal id of the entity on flexilims, used to find the entity to update
+            datatype: entity type on flexilims, used to find the entity to update
+            origin_id: (optional) new hexadecimal id of the origin for this entity
+            name: (optional) new name for this entity. Must be unique
+            attributes: (optional) dictionary of attributes to update the entity
+            strict_validation: (True by default) if True, check that all attributes are defined in the lab settings
+
+        Returns: reply from flexilims
+        """
+        if project_id is None:
+            project_id = self.project_id
+
+        params = dict(type=datatype, id=id)
+        json_data = {}
+        for field in ('name', 'origin_id', 'attributes'):
+            value = locals()[field]
+            if value is not None:
+                json_data[field] = value
+        address = 'update-one'
+        if strict_validation:
+            address += '?strict_validation=true'
+        rep = self.session.put(self.base_url + address, params=params, json=json_data)
+        if rep.ok and (rep.status_code == 200):
+            return self._clean_json(rep)
         self.handle_error(rep)
 
     def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
@@ -170,11 +200,11 @@ def parse_error(error_message):
     return {name: v for name, v in zip(('type', 'message', 'description'), m.groups())}
 
 
-def get_token(username, password):
+def get_token(username, password, base_url=BASE_URL):
     """Login to the database and create headers with the proper token
     """
     try:
-        rep = requests.post(BASE_URL + 'authenticate', auth=HTTPBasicAuth(username, password))
+        rep = requests.post(base_url + 'authenticate', auth=HTTPBasicAuth(username, password))
     except requests.exceptions.ConnectionError:
         raise requests.exceptions.ConnectionError("Cannot connect to flexilims. Are you on the Crick network?")
     if rep.ok:
