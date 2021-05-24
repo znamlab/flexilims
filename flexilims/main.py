@@ -117,8 +117,8 @@ class Flexilims(object):
             return self._clean_json(rep)
         self.handle_error(rep)
 
-    def put(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
-            strict_validation=False):
+    def update_many(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
+                    strict_validation=False):
         """Update existing object"""
         if project_id is None:
             project_id = self.project_id
@@ -128,10 +128,9 @@ class Flexilims(object):
         if query_value is not None:
             params['query_value'] = query_value
 
-        address = 'update'
+        address = 'update-many'
         if strict_validation:
             address += '?strict_validation=true'
-            raise NotImplementedError
         rep = self.session.put(self.base_url + address, params=params)
         self.log.append(rep.content)
 

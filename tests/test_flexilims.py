@@ -132,21 +132,20 @@ def test_update_one():
 
 
 def test_put_req():
-    raise DeprecationWarning
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     # get to know how many session there are
     n_sess = len(sess.get(datatype='session'))
-    rep = sess.put(datatype='session', update_key='test_attribute',
-                   update_value='new_value', query_key=None, query_value=None)
+    rep = sess.update_many(datatype='session', update_key='test_attribute',
+                           update_value='new_value', query_key=None, query_value=None)
     assert rep == 'updated successfully %d items of type session with test_attribute=new_value' % n_sess
-    rep = sess.put(datatype='session', update_key='test_attribute',
-                   update_value='new_value', query_key='test_uniq', query_value='nonexistingvalue')
+    rep = sess.update_many(datatype='session', update_key='test_attribute',
+                           update_value='new_value', query_key='test_uniq', query_value='nonexistingvalue')
     assert rep == 'updated successfully 0 items of type session with test_attribute=new_value'
-    rep = sess.put(datatype='session', query_key='test_uniq', query_value='unique',
-                   update_key='test_uniq', update_value='unique')
+    rep = sess.update_many(datatype='session', query_key='test_uniq', query_value='unique',
+                           update_key='test_uniq', update_value='unique')
     assert rep == 'updated successfully 1 items of type session with test_uniq=unique'
-    rep = sess.put(datatype='dataset', query_key='path', query_value='unique/fake/path',
-                   update_key='is_raw', update_value='yes')
+    rep = sess.update_many(datatype='dataset', query_key='path', query_value='unique/fake/path',
+                           update_key='is_raw', update_value='yes')
     assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
 
 
