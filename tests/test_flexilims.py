@@ -59,12 +59,6 @@ def test_get_req():
     assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
 
 
-def test_get_without_datatype():
-    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
-    r = sess.get(project_id=PROJECT_ID, name='test_ran_on_20210513_144540_dataset')
-    assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
-
-
 def test_get_error():
     sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(OSError) as exc_info:
@@ -93,7 +87,7 @@ def test_get_children_error():
 def test_update_one_errors():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25245', datatype='recording')
+        sess.update_one(id='609cee832597df357fa25244', datatype='recording')
     assert exc_info.value.args[0] == 'Error 400:  &#39;test_uniq&#39; is not defined in lab settings'
     with pytest.raises(OSError) as exc_info:
         sess.update_one(id='609cee832597df357fa25245', name='R101501', datatype='recording', strict_validation=False)
@@ -127,8 +121,12 @@ def test_update_one():
     assert rep['attributes']['test_uniq'] == 'new_test'
     rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
                           attributes=dict(nested=dict(level='new_test')))
+    import numpy as np
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
+                          attributes=dict(nested=dict(level='new_test'), number=12, nan=np.nan))
     assert isinstance(rep['attributes']['nested'], dict)
     assert rep['attributes']['nested']['level'] == 'new_test'
+    repl = sess.get(datatype='recording', id=rep['id'])
 
 
 def test_put_req():
@@ -189,7 +187,7 @@ def test_post_error():
     assert exc_info.value.args[0] == 'Error 400:  origin not found'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
-                  attributes=dict(rec=10), origin_id='609407f92597df357fa2489d')
+                  attributes=dict(rec=10), origin_id='608157fc6943c91ff47e831a')
     assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in lab settings'
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p', attributes=dict())
