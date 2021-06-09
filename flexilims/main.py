@@ -31,25 +31,30 @@ class Flexilims(object):
         self.session = session
         self.log.append('Session created for user %s' % self.username)
 
-    def get(self, datatype=None, project_id=None, query_key=None, query_value=None, created_by=None,
-            id=None, name=None, origin_id=None, date_created=None, date_created_operator=None):
+    def get(self, datatype=None, project_id=None, query_key=None, query_value=None,
+            created_by=None, id=None, name=None, origin_id=None, date_created=None,
+            date_created_operator=None):
         """Get all the entries of type datatype in the current project
 
-        :param datatype: flexilims type of the object(s)
-        :param project_id: hexadecimal id of the project. If None, will use the session default
+        Args:
+            datatype: flexilims type of the object(s)
+            project_id: hexadecimal id of the project. If None, will use the session
+                        default
+            id: flexilims id of the object.
+            name: name of the object
+            query_key: attribute to filter the results. Filtering is only possible with
+                       one attribute
+            query_value: valid value for attribute name `query_key`
+            origin_id: hexadecimal id of the origin of the object
+            created_by: name of the user who created the object
+            date_created: cutoff date. Only elements with date creation greater (default)
+                         or lower than this date will be return (see
+                         date_created_operator), in unix time since epoch.
+            date_created_operator: 'gt' or 'lt' for greater or lower than (default to
+                                   'gt') both include exact match
 
-        Optional argument to filter the results:
-        :param id: flexilims id of the object.
-        :param name: name of the object
-        :param query_key: attribute to filter the results. Filtering is only possible with one attribute
-        :param query_value: valid value for attribute name `query_key`
-        :param origin_id: hexadecimal id of the origin of the object
-        :param created_by: name of the user who created the object
-        :param date_created: cutoff date. Only elements with date creation greater (default) or lower than this date
-                             will be return (see date_created_operator), in unix time since epoch.
-        :param date_created_operator: 'gt' or 'lt' for greater or lower than (default to 'gt') both include exact match
-
-        :return: a list of dictionary with one element per valid flexilimns entry.
+        Returns:
+            a list of dictionary with one element per valid flexilimns entry.
         """
 
         if project_id is None:
@@ -61,8 +66,8 @@ class Flexilims(object):
             date_created_operator = 'gt'
 
         # add all non-None arguments in the list
-        args = ('query_key', 'query_value', 'id', 'name', 'origin_id', 'date_created', 'date_created_operator',
-                'created_by')
+        args = ('query_key', 'query_value', 'id', 'name', 'origin_id', 'date_created',
+                'date_created_operator', 'created_by')
         for arg_name in args:
             if locals()[arg_name] is not None:
                 params[arg_name] = locals()[arg_name]
@@ -126,12 +131,13 @@ class Flexilims(object):
             return self._clean_json(rep)
         self.handle_error(rep)
 
-    def update_many(self, datatype, update_key, update_value, query_key=None, query_value=None, project_id=None,
-                    strict_validation=False):
+    def update_many(self, datatype, update_key, update_value, query_key=None,
+                    query_value=None, project_id=None, strict_validation=False):
         """Update existing object"""
         if project_id is None:
             project_id = self.project_id
-        params = dict(type=datatype, project_id=project_id, update_key=update_key, update_value=update_value)
+        params = dict(type=datatype, project_id=project_id, update_key=update_key,
+                      update_value=update_value)
         if query_key is not None:
             params['query_key'] = query_key
         if query_value is not None:
@@ -147,8 +153,8 @@ class Flexilims(object):
             return rep.content.decode('utf8')
         self.handle_error(rep)
 
-    def post(self, datatype, name, attributes, project_id=None, origin_id=None, other_relations=None,
-             strict_validation=True):
+    def post(self, datatype, name, attributes, project_id=None, origin_id=None,
+             other_relations=None, strict_validation=True):
         """Create a new entry in the database"""
 
         if project_id is None:
@@ -175,7 +181,8 @@ class Flexilims(object):
         """handles responses that have a status code != 200"""
         # error handling:
         if rep.ok:
-            warnings.warn('Warning. Seems ok but I had an unknown status code %s' % rep.status_code)
+            warnings.warn('Warning. Seems ok but I had an unknown status code %s' %
+                          rep.status_code)
             warnings.warn('Will return the response object without interpreting it.')
             warnings.warn('see response.json() to (hopefully) get the data.')
             return rep
@@ -203,8 +210,8 @@ def parse_error(error_message):
     """
     if isinstance(error_message, bytes):
         error_message = error_message.decode('utf8')
-    m = re.match(pattern='.*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>',
-                 string=error_message)
+    regexp = '.*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>'
+    m = re.match(pattern=regexp, string=error_message)
     return {name: v for name, v in zip(('type', 'message', 'description'), m.groups())}
 
 
@@ -212,9 +219,11 @@ def get_token(username, password, base_url=BASE_URL):
     """Login to the database and create headers with the proper token
     """
     try:
-        rep = requests.post(base_url + 'authenticate', auth=HTTPBasicAuth(username, password))
+        rep = requests.post(base_url + 'authenticate',
+                            auth=HTTPBasicAuth(username, password))
     except requests.exceptions.ConnectionError:
-        raise requests.exceptions.ConnectionError("Cannot connect to flexilims. Are you on the Crick network?")
+        raise requests.exceptions.ConnectionError("Cannot connect to flexilims. "
+                                                  "Are you on the Crick network?")
     if rep.ok:
         token = rep.text
     else:

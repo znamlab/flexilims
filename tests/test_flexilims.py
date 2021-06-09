@@ -23,12 +23,15 @@ def test_session_creation():
 
 def test_unvalid_request():
     sess = flm.Flexilims(USERNAME, password)
-    rep = sess.session.get(sess.base_url + 'get', params=dict(type='recording', randomstuff='randomtext',
+    rep = sess.session.get(sess.base_url + 'get', params=dict(type='recording',
+                                                              randomstuff='randomtext',
                                                               project_id=PROJECT_ID))
     assert rep.status_code == 400
     err = flm.main.parse_error(rep.content)
-    get_valid_fields = '[type, name, origin_id, project_id, attributes, custom_entities, id, date_created, created_by' \
-                       ', date_created_operator, query_key, query_value, strict_validation]'
+    get_valid_fields = ('[type, name, origin_id, project_id, attributes, '
+                        'custom_entities, id, date_created, created_by, '
+                        'date_created_operator, query_key, query_value, '
+                        'strict_validation, allow_nulls]')
     err_msg = ' randomstuff is not valid. Valid fields are '
     assert err['message'] == err_msg + get_valid_fields
 
@@ -50,13 +53,16 @@ def test_get_req():
     r = sess.get(datatype='dataset', project_id=PROJECT_ID, created_by='Petr Znamenskiy')
     assert len(r) > 1
     cutoff = 1620897685816
-    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff, date_created_operator='gt')
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff,
+                 date_created_operator='gt')
     r2 = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff)
     assert (len(r) == len(r2)) and all([el in r2 for el in r])
     assert all(el['dateCreated'] >= cutoff for el in r)
-    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff, date_created_operator='lt')
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff,
+                 date_created_operator='lt')
     assert all(el['dateCreated'] <= cutoff for el in r)
-    r = sess.get(datatype='dataset', project_id=PROJECT_ID, name='test_ran_on_20210513_144540_dataset')
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID,
+                 name='test_ran_on_20210513_144540_dataset')
     assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
 
 
@@ -67,10 +73,12 @@ def test_get_error():
     assert exc_info.value.args[0] == 'Error 400:  type InvalidType is not defined'
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='session', project_id='NotAProject')
-    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide a valid hexadecimal value'
+    assert exc_info.value.args[0] == 'Error 400:  project_id not valid, please provide ' \
+                                     'a valid hexadecimal value'
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype='session', project_id=PROJECT_ID, id='unvalid')
-    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for id'
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal ' \
+                                     'value for id'
 
 
 def test_get_children():
@@ -82,7 +90,8 @@ def test_get_children_error():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
         sess.get_children(id='unvalid_id')
-    assert exc_info.value.args[0] == 'Error 400:  id not valid, please provide a hexadecimal value'
+    assert exc_info.value.args[0] == 'Error 400:  id not valid, please provide a ' \
+                                     'hexadecimal value'
 
 
 def test_update_one_errors():
@@ -173,33 +182,44 @@ def test_put_req():
     n_sess = len(sess.get(datatype='session'))
     rep = sess.update_many(datatype='session', update_key='test_attribute',
                            update_value='new_value', query_key=None, query_value=None)
-    assert rep == 'updated successfully %d items of type session with test_attribute=new_value' % n_sess
+    assert rep == 'updated successfully %d items of type session with ' \
+                  'test_attribute=new_value' % n_sess
     rep = sess.update_many(datatype='session', update_key='test_attribute',
-                           update_value='new_value', query_key='test_uniq', query_value='nonexistingvalue')
-    assert rep == 'updated successfully 0 items of type session with test_attribute=new_value'
-    rep = sess.update_many(datatype='session', query_key='test_uniq', query_value='unique',
-                           update_key='test_uniq', update_value='unique')
+                           update_value='new_value', query_key='test_uniq',
+                           query_value='nonexistingvalue')
+    assert rep == 'updated successfully 0 items of type session with' \
+                  ' test_attribute=new_value'
+    rep = sess.update_many(datatype='session',
+                           query_key='test_uniq',
+                           query_value='unique',
+                           update_key='test_uniq',
+                           update_value='unique')
     assert rep == 'updated successfully 1 items of type session with test_uniq=unique'
-    rep = sess.update_many(datatype='dataset', query_key='path', query_value='unique/fake/path',
-                           update_key='is_raw', update_value='yes')
+    rep = sess.update_many(datatype='dataset',
+                           query_key='path',
+                           query_value='unique/fake/path',
+                           update_key='is_raw',
+                           update_value='yes')
     assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
 
 
 def test_post_req():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    rep = sess.post(datatype='session', name='test_ran_on_%s' % now, attributes=dict())
+    rep = sess.post(datatype='session', name='test_ran_on_%s' % now,
+                    attributes=dict(path='test/session'))
     rep = sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
-                    attributes=dict(session=rep['id'], trial=1),
+                    attributes=dict(session=rep['id'], trial=1,
+                                    path='test/session/recording'),
                     origin_id='608157fc6943c91ff47e831a', strict_validation=False)
     sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
-                    attributes=dict(dataset_type='camera', path='random'),
-                    origin_id=rep['id'], strict_validation=True)
+              attributes=dict(dataset_type='camera', path='random'),
+              origin_id=rep['id'], strict_validation=True)
 
 
 def test_post_error():
     sess = flm.Flexilims(USERNAME, password)
-    with pytest.raises(IOError) as exc:
+    with pytest.raises(IOError):
         sess.post(datatype='recording', name='randomname', project_id=PROJECT_ID,
                   attributes=dict(random_attribute='should fail'))
 
@@ -209,29 +229,38 @@ def test_post_error():
         sess.post(datatype='NotAType', project_id=PROJECT_ID, name='temp', attributes={})
     assert exc_info.value.args[0] == 'Error 400:  type provided is not defined'
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='mouse', project_id='InvalidProject', name='temp', attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for project_id'
+        sess.post(datatype='mouse', project_id='InvalidProject', name='temp',
+                  attributes={})
+    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal ' \
+                                     'value for project_id'
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
+        sess.post(datatype='recording', project_id=PROJECT_ID,
+                  name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9',
                   other_relations='undefined')
-    err_msg = 'Error 400:  other_relations is not valid. Valid fields are [type, name, '\
-              'origin_id, project_id, attributes, custom_entities, id, date_created, '\
-              'created_by, date_created_operator, query_key, query_value, strict_validation]'
+    err_msg = ('Error 400:  other_relations is not valid. Valid fields are [type, name, '
+               'origin_id, project_id, attributes, custom_entities, id, date_created, '
+               'created_by, date_created_operator, query_key, query_value, '
+               'strict_validation]')
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
+        sess.post(datatype='recording', project_id=PROJECT_ID,
+                  name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='605a36c53b38df2abd7757e9')
     assert exc_info.value.args[0] == 'Error 400:  origin not found'
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='recording', project_id=PROJECT_ID, name='test_ran_on_%s_with_origin' % 'now',
+        sess.post(datatype='recording', project_id=PROJECT_ID,
+                  name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='608157fc6943c91ff47e831a')
-    assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in lab settings'
+    assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in ' \
+                                     'lab settings'
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p', attributes=dict())
+        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p',
+                  attributes=dict())
     err_msg = 'Error 400:  &#39;path&#39; is a necessary attribute for dataset'
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
-        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2prandom', attributes=dict(datatype='camOra'))
+        sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2prandom',
+                  attributes=dict(datatype='camOra'))
     err_msg = 'Error 400:  &#39;datatype&#39; is not defined in lab settings'
     assert exc_info.value.args[0] == err_msg
