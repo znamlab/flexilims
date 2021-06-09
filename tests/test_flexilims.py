@@ -182,8 +182,8 @@ def test_put_req():
     n_sess = len(sess.get(datatype='session'))
     rep = sess.update_many(datatype='session', update_key='test_attribute',
                            update_value='new_value', query_key=None, query_value=None)
-    assert rep == 'updated successfully %d items of type session with ' \
-                  'test_attribute=new_value' % n_sess
+    assert rep == ('updated successfully %d items of type session with '
+                   'test_attribute=new_value' % n_sess)
     rep = sess.update_many(datatype='session', update_key='test_attribute',
                            update_value='new_value', query_key='test_uniq',
                            query_value='nonexistingvalue')
@@ -200,7 +200,7 @@ def test_put_req():
                            query_value='unique/fake/path',
                            update_key='is_raw',
                            update_value='yes')
-    assert rep == 'updated successfully 1 items of type dataset with is_raw=yes'
+    assert rep == 'updated successfully 0 items of type dataset with is_raw=yes'
 
 
 def test_post_req():
@@ -231,8 +231,8 @@ def test_post_error():
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='mouse', project_id='InvalidProject', name='temp',
                   attributes={})
-    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal ' \
-                                     'value for project_id'
+    assert exc_info.value.args[0] == ('Error 400:  please provide a valid hexadecimal '
+                                      'value for project_id')
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID,
                   name='test_ran_on_%s_with_origin' % 'now',
@@ -241,7 +241,7 @@ def test_post_error():
     err_msg = ('Error 400:  other_relations is not valid. Valid fields are [type, name, '
                'origin_id, project_id, attributes, custom_entities, id, date_created, '
                'created_by, date_created_operator, query_key, query_value, '
-               'strict_validation]')
+               'strict_validation, allow_nulls]')
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID,
@@ -252,8 +252,8 @@ def test_post_error():
         sess.post(datatype='recording', project_id=PROJECT_ID,
                   name='test_ran_on_%s_with_origin' % 'now',
                   attributes=dict(rec=10), origin_id='608157fc6943c91ff47e831a')
-    assert exc_info.value.args[0] == 'Error 400:  &#39;rec&#39; is not defined in ' \
-                                     'lab settings'
+    assert exc_info.value.args[0] == ('Error 400:  &#39;rec&#39; is not defined in lab '
+                                      'settings')
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p',
                   attributes=dict())

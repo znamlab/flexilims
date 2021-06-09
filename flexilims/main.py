@@ -123,9 +123,9 @@ class Flexilims(object):
         address = 'update-one'
         # add flags
         if strict_validation:
-            address += '?strict_validation=true'
+            params['strict_validation'] = 'true'
         if allow_nulls:
-            address += '?allow_nulls=true'
+            params['allow_nulls'] = 'true'
         rep = self.session.put(self.base_url + address, params=params, json=json_data)
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
