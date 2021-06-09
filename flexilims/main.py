@@ -86,17 +86,23 @@ class Flexilims(object):
 
         self.handle_error(rep)
 
-    def update_one(self, id, datatype, origin_id=None, name=None, attributes=None, strict_validation=True,
-                   project_id=None):
+    def update_one(self, id, datatype, origin_id=None, name=None, attributes=None,
+                   strict_validation=True, allow_nulls=True, project_id=None):
         """Update one existing entity
 
         Args:
-            id: hexadecimal id of the entity on flexilims, used to find the entity to update
+            id: hexadecimal id of the entity to update on flexilims
             datatype: entity type on flexilims, used to find the entity to update
             origin_id: (optional) new hexadecimal id of the origin for this entity
             name: (optional) new name for this entity. Must be unique
             attributes: (optional) dictionary of attributes to update the entity
-            strict_validation: (True by default) if True, check that all attributes are defined in the lab settings
+            strict_validation: (True by default) if True, check that all attributes are
+                               defined in the lab settings
+            allow_nulls: (True by default) if True, an attribute set to "" or '' will be
+                         set to null, if False, such values will be ignored and
+                         not updated.
+                         Note that required attributes cannot be set to None.
+            project_id: hexadecimal project id. Use self.project if None.
 
         Returns: reply from flexilims
         """
@@ -110,8 +116,11 @@ class Flexilims(object):
             if value is not None:
                 json_data[field] = value
         address = 'update-one'
+        # add flags
         if strict_validation:
             address += '?strict_validation=true'
+        if allow_nulls:
+            address += '?allow_nulls=true'
         rep = self.session.put(self.base_url + address, params=params, json=json_data)
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)

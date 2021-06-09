@@ -2,6 +2,7 @@
 
 import pytest
 import datetime
+import numpy as np
 import flexilims as flm
 from flexilims.secret_password import flexilims_passwords
 
@@ -88,17 +89,26 @@ def test_update_one_errors():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
         sess.update_one(id='609cee832597df357fa25244', datatype='recording')
-    assert exc_info.value.args[0] == 'Error 400:  &#39;test_uniq&#39; is not defined in lab settings'
+    assert exc_info.value.args[0] == ('Error 400:  Update failed. &#39;test_uniq&#39; is '
+                                      'not defined in lab settings')
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25245', name='R101501', datatype='recording', strict_validation=False)
-    assert exc_info.value.args[0] == 'Error 400:  Check sample name. Sample R101501 already exist in the project test'
-    with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25245', origin_id='randomness', datatype='recording',
+        sess.update_one(id='609cee832597df357fa25245',
+                        name='R101501',
+                        datatype='recording',
                         strict_validation=False)
-    assert exc_info.value.args[0] == 'Error 400:  please provide a valid hexadecimal value for origin_id'
+    assert exc_info.value.args[0] == ('Error 400:  Update failed. Check sample name.'
+                                      ' Sample R101501 already exist in the project test')
+    with pytest.raises(OSError) as exc_info:
+        sess.update_one(id='609cee832597df357fa25245',
+                        origin_id='randomness',
+                        datatype='recording',
+                        strict_validation=False)
+    assert exc_info.value.args[0] == ('Error 400:  please provide a '
+                                      'valid hexadecimal value for origin_id')
 
 
 def test_update_one():
+    # test without project_id
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     entity_id = '609cee832597df357fa25245'
     original = sess.get(datatype='recording', id=entity_id)[0]
@@ -109,24 +119,52 @@ def test_update_one():
                           strict_validation=False)
     assert rep['name'] == 'R101501_new_name'
     # put back original name
-    sess.update_one(id=entity_id, name='R101501', datatype='recording', strict_validation=False)
+    sess.update_one(id=entity_id, name='R101501', datatype='recording',
+                    strict_validation=False)
     orid = original['origin_id']
     other_id = '60803df36943c91ff47e80a8'
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False)
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording',
+                          strict_validation=False)
     assert rep['origin_id'] == other_id
     # put back original id
-    sess.update_one(id=entity_id, origin_id=orid, datatype='recording', strict_validation=False)
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
+    sess.update_one(id=entity_id, origin_id=orid, datatype='recording',
+                    strict_validation=False)
+    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording',
+                          strict_validation=False,
                           attributes=dict(test_uniq='new_test'))
     assert rep['attributes']['test_uniq'] == 'new_test'
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
-                          attributes=dict(nested=dict(level='new_test')))
-    import numpy as np
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording', strict_validation=False,
-                          attributes=dict(nested=dict(level='new_test'), number=12, nan=np.nan))
+    rep = sess.update_one(id=entity_id,
+                          origin_id=other_id,
+                          datatype='recording',
+                          strict_validation=False,
+                          attributes=dict(nested=dict(level='new_test'),
+                                          number=12,
+                                          nan=np.nan))
     assert isinstance(rep['attributes']['nested'], dict)
     assert rep['attributes']['nested']['level'] == 'new_test'
-    repl = sess.get(datatype='recording', id=rep['id'])
+    assert rep['attributes']['nan'] == 'NaN'
+    assert isinstance(rep['attributes']['number'], int)
+    # When allow_nulls is False, nothing happens
+    rep = sess.update_one(id=entity_id,
+                          origin_id=None,
+                          datatype='recording',
+                          strict_validation=False,
+                          allow_nulls=False,
+                          attributes=dict(number=21,
+                                          nan=''))
+    assert rep['attributes']['nan'] == 'NaN'
+    assert rep['origin_id'] == other_id
+    rep = sess.update_one(id=entity_id,
+                          origin_id=other_id,
+                          datatype='recording',
+                          strict_validation=False,
+                          allow_nulls=True,
+                          attributes=dict(number='',
+                                          nan="",
+                                          path='d'))
+    # When allow_nulls is True, erase
+    assert rep['attributes']['nan'] is None
+    assert rep['attributes']['number'] is None
 
 
 def test_put_req():
