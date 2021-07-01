@@ -161,6 +161,11 @@ class Flexilims(object):
             project_id = self.project_id
         assert isinstance(project_id, str)
         assert isinstance(attributes, dict)
+        # Flexilims cannot handle None value for now
+        for k, v in attributes.items():
+            if v is None:
+                print('Cannot set attribute `%s` to None. Will put an empty string' % k)
+                attributes[k] = ''
         json_data = dict(type=datatype, name=name, project_id=project_id,
                          attributes=attributes)
         if origin_id is not None:
