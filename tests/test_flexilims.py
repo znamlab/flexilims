@@ -217,6 +217,14 @@ def test_post_req():
               origin_id=rep['id'], strict_validation=True)
 
 
+def test_post_null():
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    sess.post(datatype='session', name='test_ran_on_%s' % now,
+              attributes=dict(path='none', empty='', none=None, nan=float('nan'),
+                              null='null'),
+              strict_validation=False)
+
 def test_post_error():
     sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(IOError):
