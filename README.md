@@ -16,7 +16,7 @@ First you can create a `Session` object that will handle the authentication. It 
 ```
 import flexilims.main as flm
 
-session = flm.Session(username='MyUserName', password='Password', project_id='hexcode000000000')
+session = flm.Flexilims(username='MyUserName', password='Password', project_id='hexcode000000000')
 ```
 
 If the password is not provided, it will attempt to load it from `secret_password.py`. If this file exists it must contain a dictionnary of username/password pairs called `password_dict`
