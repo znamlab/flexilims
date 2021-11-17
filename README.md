@@ -11,7 +11,7 @@ This package contains a class with generic wrapper to the flexilims get/put/post
 ## Basic use
 
 ### Authentication
-First you can create a `Session` object that will handle the authentication. It can also have a default project to avoid re-entering the id at every request.
+First you can create a `Flexilims` object that will handle the authentication. It can also have a default project to avoid re-entering the id at every request.
 
 ```
 import flexilims.main as flm
