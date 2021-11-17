@@ -225,6 +225,7 @@ def test_post_null():
                               null='null'),
               strict_validation=False)
 
+
 def test_post_error():
     sess = flm.Flexilims(USERNAME, password)
     with pytest.raises(IOError):

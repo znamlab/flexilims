@@ -133,7 +133,21 @@ class Flexilims(object):
 
     def update_many(self, datatype, update_key, update_value, query_key=None,
                     query_value=None, project_id=None, strict_validation=False):
-        """Update existing object"""
+        """Update many existing entity
+
+        Args:
+            datatype: entity type on flexilims, used to find the entity to update
+            update_key: attribute that you want to update
+            update_value: new value for the attributes
+            query_key (optional): attribute to select which entries to update
+            query_value (optional): valid value for query_key
+            project_id (optional): hexadecimal project id. Use self.project if None.
+            strict_validation (True by default) if True, check that all attributes are
+                               defined in the lab settings
+
+        Returns: reply from flexilims
+        """
+
         if project_id is None:
             project_id = self.project_id
         params = dict(type=datatype, project_id=project_id, update_key=update_key,
@@ -155,7 +169,22 @@ class Flexilims(object):
 
     def post(self, datatype, name, attributes, project_id=None, origin_id=None,
              other_relations=None, strict_validation=True):
-        """Create a new entry in the database"""
+        """Create a new entry in the database
+
+        Args:
+            datatype: entity type on flexilims
+            name: new name for this entity. Must be unique
+            attributes: dictionary of attributes to update the entity. Any
+                        mangodb-compatible element (including nested dictionary) is
+                        supported
+            project_id: hexadecimal project id. Use self.project if None.
+            origin_id: (optional) hexadecimal id of the origin for this entity
+            other_relations (optional): not used. Ask Mike Gavrielides to know more
+            strict_validation: (True by default) if True, check that all attributes are
+                               defined in the lab settings
+
+        Returns: reply from flexilims
+        """
 
         if project_id is None:
             project_id = self.project_id
@@ -237,7 +266,7 @@ def get_token(username, password, base_url=BASE_URL):
     if rep.ok:
         token = rep.text
     else:
-        raise IOError('Failed to autheticate. Got an error %d' % rep.status_code)
+        raise IOError('Failed to authenticate. Got an error %d' % rep.status_code)
 
     headers = {"Authorization": "Bearer %s" % token}
     return headers
