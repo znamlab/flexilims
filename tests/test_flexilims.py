@@ -97,16 +97,29 @@ def test_get_children_error():
 def test_update_one_errors():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25244', datatype='recording')
-    assert exc_info.value.args[0] == ('Error 400:  Update failed. &#39;test_uniq&#39; is '
-                                      'not defined in lab settings')
+        sess.update_one(id='619f799d068a8561a85ab158', datatype='recording',
+                        attributes=dict(camel='humpy'))
+    assert exc_info.value.args[0] == 'Error 400:  Update failed. &#39;camel&#39; is not' \
+                                     'defined in lab settings If you have &#39;null&#39;'\
+                                     ' values please substitute (null) with empty string'\
+                                     ' (&#39;&#39;) '
+    # Even without strict validation, setting an attribute outside of valid values fails
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25245',
+        sess.update_one(id='619f799d068a8561a85ab158', datatype='recording',
+                        attributes=dict(recording_type='humpy'), strict_validation=False)
+    assert exc_info.value.args[0] == 'Error 400:  Update failed. &#39;humpy&#39; is not' \
+                                     ' a valid value for recording_type If you have' \
+                                     ' &#39;null&#39; values please substitute (null)' \
+                                     ' with empty string (&#39;&#39;) '
+    with pytest.raises(OSError) as exc_info:
+        sess.update_one(id='619f79bf068a8561a85ab15a',
                         name='R101501',
                         datatype='recording',
                         strict_validation=False)
-    assert exc_info.value.args[0] == ('Error 400:  Update failed. Check sample name.'
-                                      ' Sample R101501 already exist in the project test')
+    assert exc_info.value.args[0] == ('Error 400:  Update failed. Check sample name. '
+                                      'Sample R101501 already exist in the project test '
+                                      'If you have &#39;null&#39; values please '
+                                      'substitute (null) with empty string (&#39;&#39;) ')
     with pytest.raises(OSError) as exc_info:
         sess.update_one(id='609cee832597df357fa25245',
                         origin_id='randomness',
@@ -176,7 +189,7 @@ def test_update_one():
     assert rep['attributes']['number'] is None
 
 
-def test_put_req():
+def test_update_many_req():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     # get to know how many session there are
     n_sess = len(sess.get(datatype='session'))
