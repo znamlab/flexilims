@@ -10,6 +10,7 @@ BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 USERNAME = 'blota'
 password = flexilims_passwords[USERNAME]
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
+MOUSE_ID = '6094f7212597df357fa24a8c'
 
 
 def test_token():
@@ -41,17 +42,17 @@ def test_get_req():
     # basic test
     sess.get(datatype='session', project_id=PROJECT_ID)
     r = sess.get(datatype='recording', project_id=PROJECT_ID)
-    assert len(r) > 1
+    assert len(r) >= 1
     # test all filtering arguments:
-    r = sess.get(datatype='recording', project_id=PROJECT_ID, query_key='protocol',
-                 query_value='test_prot')
+    r = sess.get(datatype='recording', project_id=PROJECT_ID, query_key='rec_attr',
+                 query_value='attribute of recording')
     assert len(r) == 1
-    r = sess.get(datatype='dataset', project_id=PROJECT_ID, id='609d2d856d12db1b47d86486')
-    assert len(r) == 1
-    r = sess.get(datatype='mouse', project_id=PROJECT_ID, id='609d2d856d12db1b47d86486')
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, id=MOUSE_ID)
     assert len(r) == 0
-    r = sess.get(datatype='dataset', project_id=PROJECT_ID, created_by='Petr Znamenskiy')
-    assert len(r) > 1
+    r = sess.get(datatype='mouse', project_id=PROJECT_ID, id=MOUSE_ID)
+    assert len(r) == 1
+    r = sess.get(datatype='dataset', project_id=PROJECT_ID, created_by='Antonin Blot')
+    assert len(r) >= 1
     cutoff = 1620897685816
     r = sess.get(datatype='dataset', project_id=PROJECT_ID, date_created=cutoff,
                  date_created_operator='gt')
@@ -62,8 +63,8 @@ def test_get_req():
                  date_created_operator='lt')
     assert all(el['dateCreated'] <= cutoff for el in r)
     r = sess.get(datatype='dataset', project_id=PROJECT_ID,
-                 name='test_ran_on_20210513_144540_dataset')
-    assert (len(r) == 1) and (r[0]['name'] == 'test_ran_on_20210513_144540_dataset')
+                 name='test_dataset')
+    assert (len(r) == 1) and (r[0]['name'] == 'test_dataset')
 
 
 def test_get_error():
@@ -83,7 +84,9 @@ def test_get_error():
 
 def test_get_children():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
-    sess.get_children(id='60803df36943c91ff47e80a8')
+    ch = sess.get_children(id=MOUSE_ID)
+    assert len(ch) >= 1
+    assert 'test_session' in [c['name'] for c in ch]
 
 
 def test_get_children_error():
@@ -97,31 +100,33 @@ def test_get_children_error():
 def test_update_one_errors():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='619f799d068a8561a85ab158', datatype='recording',
+        sess.update_one(id=MOUSE_ID, datatype='mouse',
                         attributes=dict(camel='humpy'))
-    assert exc_info.value.args[0] == 'Error 400:  Update failed. &#39;camel&#39; is not' \
-                                     'defined in lab settings If you have &#39;null&#39;'\
-                                     ' values please substitute (null) with empty string'\
-                                     ' (&#39;&#39;) '
+    assert exc_info.value.args[0] == 'Error 400:  Update failed. &#39;note&#39; is not ' \
+                                     'defined in lab settings. If you have ' \
+                                     '&#39;null&#39; values please substitute (null) ' \
+                                     'with empty string (&#39;&#39;) '
     # Even without strict validation, setting an attribute outside of valid values fails
+    recs = sess.get('recording')
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='619f799d068a8561a85ab158', datatype='recording',
+        sess.update_one(id=recs[0]['id'], datatype='recording',
                         attributes=dict(recording_type='humpy'), strict_validation=False)
     assert exc_info.value.args[0] == 'Error 400:  Update failed. &#39;humpy&#39; is not' \
-                                     ' a valid value for recording_type If you have' \
+                                     ' a valid value for recording_type. If you have' \
                                      ' &#39;null&#39; values please substitute (null)' \
                                      ' with empty string (&#39;&#39;) '
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='619f79bf068a8561a85ab15a',
-                        name='R101501',
+        sess.update_one(id=recs[0]['id'],
+                        name='test_recording',
                         datatype='recording',
                         strict_validation=False)
     assert exc_info.value.args[0] == ('Error 400:  Update failed. Check sample name. '
-                                      'Sample R101501 already exist in the project test '
-                                      'If you have &#39;null&#39; values please '
-                                      'substitute (null) with empty string (&#39;&#39;) ')
+                                      'Sample test_recording already exist in the '
+                                      'project test. If you have &#39;null&#39; values '
+                                      'please substitute (null) with empty string ('
+                                      '&#39;&#39;) ')
     with pytest.raises(OSError) as exc_info:
-        sess.update_one(id='609cee832597df357fa25245',
+        sess.update_one(id=recs[0]['id'],
                         origin_id='randomness',
                         datatype='recording',
                         strict_validation=False)
@@ -132,61 +137,67 @@ def test_update_one_errors():
 def test_update_one():
     # test without project_id
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
-    entity_id = '609cee832597df357fa25245'
-    original = sess.get(datatype='recording', id=entity_id)[0]
+    original = sess.get(datatype='recording', name='test_recording')[0]
+
+    orid = original['origin_id']
+    entity_id = original['id']
     # update nothing
     rep = sess.update_one(id=entity_id, datatype='recording', strict_validation=False)
     assert rep == original
-    rep = sess.update_one(id=entity_id, name='R101501_new_name', datatype='recording',
-                          strict_validation=False)
-    assert rep['name'] == 'R101501_new_name'
-    # put back original name
-    sess.update_one(id=entity_id, name='R101501', datatype='recording',
-                    strict_validation=False)
-    orid = original['origin_id']
-    other_id = '60803df36943c91ff47e80a8'
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording',
-                          strict_validation=False)
-    assert rep['origin_id'] == other_id
-    # put back original id
-    sess.update_one(id=entity_id, origin_id=orid, datatype='recording',
-                    strict_validation=False)
-    rep = sess.update_one(id=entity_id, origin_id=other_id, datatype='recording',
+    # update attributes
+    rep = sess.update_one(id=entity_id,
+                          datatype='recording',
                           strict_validation=False,
                           attributes=dict(test_uniq='new_test'))
     assert rep['attributes']['test_uniq'] == 'new_test'
     rep = sess.update_one(id=entity_id,
-                          origin_id=other_id,
-                          datatype='recording',
-                          strict_validation=False,
-                          attributes=dict(nested=dict(level='new_test'),
-                                          number=12,
-                                          nan=np.nan))
-    assert isinstance(rep['attributes']['nested'], dict)
-    assert rep['attributes']['nested']['level'] == 'new_test'
-    assert rep['attributes']['nan'] == 'NaN'
-    assert isinstance(rep['attributes']['number'], int)
-    # When allow_nulls is False, nothing happens
-    rep = sess.update_one(id=entity_id,
-                          origin_id=None,
                           datatype='recording',
                           strict_validation=False,
                           allow_nulls=False,
-                          attributes=dict(number=21,
+                          attributes=dict(nested=dict(level='new_test'),
+                                          list=['a', 1],
+                                          number=12,
+                                          nan='NaN',
+                                          empty=''))
+    assert isinstance(rep['attributes']['nested'], dict)
+    assert rep['attributes']['nested']['level'] == 'new_test'
+    assert rep['attributes']['nan'] == 'NaN'
+    assert len(rep['attributes']['list']) == 2
+    assert isinstance(rep['attributes']['number'], int)
+    # when allow null is False, '' are ignored
+    rep = sess.update_one(id=entity_id,
+                          datatype='recording',
+                          strict_validation=False,
+                          allow_nulls=False,
+                          attributes=dict(test_unique=21,
                                           nan=''))
     assert rep['attributes']['nan'] == 'NaN'
-    assert rep['origin_id'] == other_id
+    # When allow_nulls is True, erase
     rep = sess.update_one(id=entity_id,
-                          origin_id=other_id,
                           datatype='recording',
                           strict_validation=False,
                           allow_nulls=True,
                           attributes=dict(number='',
                                           nan="",
                                           path='d'))
-    # When allow_nulls is True, erase
-    assert rep['attributes']['nan'] is None
-    assert rep['attributes']['number'] is None
+
+    assert rep['attributes']['nan'] == ''
+    assert rep['attributes']['number'] == ''
+    # update name only
+    rep = sess.update_one(id=entity_id, name='R101501_new_name', datatype='recording',
+                          strict_validation=False)
+    assert rep['name'] == 'R101501_new_name'
+    sess.update_one(id=entity_id, name=original['name'], datatype='recording',
+                    strict_validation=False)
+    # update origin_id only
+    rep = sess.update_one(id=entity_id, origin_id=MOUSE_ID, datatype='recording',
+                          strict_validation=False)
+    assert rep['origin_id'] == MOUSE_ID
+    # put back original id
+    rep = sess.update_one(id=entity_id, origin_id=orid, datatype='recording',
+                          strict_validation=False)
+
+    assert rep['origin_id'] == orid
 
 
 def test_update_many_req():
@@ -224,7 +235,7 @@ def test_post_req():
     rep = sess.post(datatype='recording', name='test_ran_on_%s_with_origin' % now,
                     attributes=dict(session=rep['id'], trial=1,
                                     path='test/session/recording'),
-                    origin_id='608157fc6943c91ff47e831a', strict_validation=False)
+                    origin_id=MOUSE_ID, strict_validation=False)
     sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
               attributes=dict(dataset_type='camera', path='random'),
               origin_id=rep['id'], strict_validation=True)
@@ -273,16 +284,22 @@ def test_post_error():
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='recording', project_id=PROJECT_ID,
                   name='test_ran_on_%s_with_origin' % 'now',
-                  attributes=dict(rec=10), origin_id='608157fc6943c91ff47e831a')
-    assert exc_info.value.args[0] == ('Error 400:  &#39;rec&#39; is not defined in lab '
-                                      'settings')
+                  attributes=dict(rec=10), origin_id=MOUSE_ID)
+    err_msg = 'Error 400:  Save failed. &#39;rec&#39; is not defined in lab settings. ' \
+              'If you have &#39;null&#39; values please substitute (null) with empty ' \
+              'string (&#39;&#39;) '
+    assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2p',
                   attributes=dict())
-    err_msg = 'Error 400:  &#39;path&#39; is a necessary attribute for dataset'
+    err_msg = 'Error 400:  Save failed. &#39;path&#39; is a necessary attribute for ' \
+              'dataset. If you have &#39;null&#39; values please substitute (null) ' \
+              'with empty string (&#39;&#39;) '
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
         sess.post(datatype='dataset', project_id=PROJECT_ID, name='suite2prandom',
                   attributes=dict(datatype='camOra'))
-    err_msg = 'Error 400:  &#39;datatype&#39; is not defined in lab settings'
+    err_msg = ('Error 400:  Save failed. &#39;datatype&#39; is not defined in lab '
+               'settings. If you have &#39;null&#39; values please substitute (null) '
+               'with empty string (&#39;&#39;) ')
     assert exc_info.value.args[0] == err_msg
