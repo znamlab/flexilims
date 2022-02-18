@@ -1,4 +1,5 @@
 """Unit tests for the main flexilims wrappers"""
+import json
 
 import pytest
 import datetime
@@ -236,9 +237,30 @@ def test_post_req():
                     attributes=dict(session=rep['id'], trial=1,
                                     path='test/session/recording'),
                     origin_id=MOUSE_ID, strict_validation=False)
+    datatypes = dict(dataset_type='camera',
+                     path='random',
+                     int=12,
+                     float=12.1,
+                     list=[0, 1],
+                     tuple=(0, 1),
+                     dict=dict(o=2),
+                     bool=False,
+                     empty_dict=dict(),
+                     empty_list=[],
+                     empty_str=''
+                     )
+
     sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
-              attributes=dict(dataset_type='camera', path='random'),
-              origin_id=rep['id'], strict_validation=True)
+              attributes=datatypes, origin_id=rep['id'], strict_validation=False)
+    gt = sess.get(datatype='dataset',
+                  name='test_ran_on_%s_dataset' % now)[0]['attributes']
+    transformed = dict(tuple=[], empty_dict=None, empty_list=None)
+    for k, v in gt.items():
+        if k in transformed:
+            expected = type(transformed[k])
+        else:
+            expected = type(datatypes[k])
+        assert (isinstance(v, expected))
 
 
 def test_post_null():
@@ -303,3 +325,9 @@ def test_post_error():
                'settings. If you have &#39;null&#39; values please substitute (null) '
                'with empty string (&#39;&#39;) ')
     assert exc_info.value.args[0] == err_msg
+    json_error = dict(set={1, 2}, complex=complex(1, 1), frozenset=frozenset({1}),
+                      bytes=bytes(0), array=np.arange(10))
+    for k, v in json_error.items():
+        with pytest.raises(TypeError):
+            sess.post(datatype='dataset', project_id=PROJECT_ID, name='random',
+                      attributes=dict(k=v, path='p'))
