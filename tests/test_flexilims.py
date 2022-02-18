@@ -165,6 +165,19 @@ def test_update_one():
     assert rep['attributes']['nan'] == 'NaN'
     assert len(rep['attributes']['list']) == 2
     assert isinstance(rep['attributes']['number'], int)
+    # test a weird nesting with empty structures and nones
+    sess.update_one(id=entity_id,
+                          datatype='recording',
+                          strict_validation=False,
+                          allow_nulls=True,
+                          attributes=dict(nested=dict(sublvl=dict(o=1, none=None),
+                                                      empty_lvl=[])))
+    get = sess.get(datatype='recording', id=entity_id)[0]['attributes']
+    assert (isinstance(get['nested'], dict))
+    assert (isinstance(get['nested']['sublvl'], dict))
+    assert get['nested']['empty_lvl'] is None
+    assert get['nested']['sublvl']['none'] is None
+
     # when allow null is False, '' are ignored
     rep = sess.update_one(id=entity_id,
                           datatype='recording',
