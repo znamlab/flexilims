@@ -228,9 +228,15 @@ class Flexilims(object):
         """
 
         for k, v in attributes.items():
+            if isinstance(v, tuple):
+                # make sure we have list to do in-place modification
+                v = list(v)
+                attributes[k] = v
             if isinstance(v, dict):
                 self._replace_nones(v)
-            # we might have an empty dictionary
+            elif isinstance(v, list):
+                self._cleanlist(v)
+            # we might have an empty dictionary or empty list
             if hasattr(v, '__iter__') and (not isinstance(v, str)) and (not len(v)):
                 print('Warning: %s is an empty structure and will be uploaded as '
                       '`None`' % k)
@@ -240,6 +246,29 @@ class Flexilims(object):
             elif isinstance(v, float) and math.isnan(v):
                 print('Setting `%s` to None. Reply will contain an empty list' % k)
                 attributes[k] = []
+
+    def _cleanlist(self, list2clean):
+        """ Check recursively if the list contains None or dict and replace them
+
+        Args:
+            list2clean: a list of elements
+
+        Returns:
+            None (changes in place)
+
+        """
+        for index, element in enumerate(list2clean):
+            if isinstance(element, tuple):
+                element = list(element)
+                list2clean[index] = element
+            if isinstance(element, list):
+                self._cleanlist(element)
+            elif isinstance(element, dict):
+                self._replace_nones(element)
+            elif element is None:
+                print('Setting a list element to None. Reply will contain an empty list')
+                list2clean[index] = []
+        assert all([e is not None for e in list2clean])
 
     def handle_error(self, rep):
         """handles responses that have a status code != 200"""

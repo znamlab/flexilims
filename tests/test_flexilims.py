@@ -166,17 +166,29 @@ def test_update_one():
     assert len(rep['attributes']['list']) == 2
     assert isinstance(rep['attributes']['number'], int)
     # test a weird nesting with empty structures and nones
+    nested = dict(sublvl=dict(o=1, none=None),
+                  empty_lvl=[],
+                  list_list=[1, [], ['o', None]])
+    listofdict = [dict(a=2), [dict()], (1, None), (dict(t=([], (None, 1))))]
     sess.update_one(id=entity_id,
-                          datatype='recording',
-                          strict_validation=False,
-                          allow_nulls=True,
-                          attributes=dict(nested=dict(sublvl=dict(o=1, none=None),
-                                                      empty_lvl=[])))
+                    datatype='recording',
+                    strict_validation=False,
+                    allow_nulls=True,
+                    attributes=dict(nested=nested,
+                                    listofdict=listofdict))
     get = sess.get(datatype='recording', id=entity_id)[0]['attributes']
     assert (isinstance(get['nested'], dict))
     assert (isinstance(get['nested']['sublvl'], dict))
     assert get['nested']['empty_lvl'] is None
     assert get['nested']['sublvl']['none'] is None
+    assert (isinstance(get['listofdict'], list))
+    for element, expected_type in zip(get['listofdict'], [dict, list, list, dict]):
+        assert (isinstance(element, expected_type))
+    assert get['listofdict'][1][0] is None
+    assert get['listofdict'][2][1] is None
+    assert get['listofdict'][3]['t'][0] is None
+    assert get['listofdict'][3]['t'][1][0] is None
+
 
     # when allow null is False, '' are ignored
     rep = sess.update_one(id=entity_id,
