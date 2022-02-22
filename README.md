@@ -8,6 +8,43 @@ This repository is defining python wrappers to use the API.
 
 This package contains a class with generic wrapper to the flexilims get/put/post request. It should not depend on particular local schema.
 
+## Valid data types
+
+Data is sent via http requests containing a json-formatted body. All valid json should 
+work, with some caveat for empty structures.  
+
+### Valid type (uploaded as is)
+
+Most basic datatype work as expected. This includes:
+
+- `str` including empty strings.
+- Numbers, `int` or `float`.
+- `list` containing at least one element.
+- `dict` containing at least one element.
+- Nested structures of the above.
+
+### Converted types
+
+Some types can be uploaded but will converted when uploaded to the database, and come 
+back as a different type when using a `get` request.
+
+- A `tuple` becomes a `list`.
+- Empty `dict` are uploaded as `null` .
+- Empty `list` are uploaded as `null`.
+
+**Warning**: the reply from flexilims after a `post` request is sent before uploading the 
+database, empty list and dictionaries are still present as such in this reply. 
+
+### Invalid types
+
+Trying to upload these types will raise an error.
+
+- `complex`
+- `set`/`frozenset`
+- `bytes`
+- `range`
+- Almost any other non built-in types (`np.array`, `pd.DataFrame`...)
+
 ## Basic use
 
 ### Authentication

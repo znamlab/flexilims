@@ -61,7 +61,7 @@ class Flexilims(object):
             project_id = self.project_id
         params = dict(type=datatype, project_id=project_id)
         if date_created_operator is not None:
-            assert(date_created_operator in ('gt', 'lt'))
+            assert (date_created_operator in ('gt', 'lt'))
         elif date_created is not None:
             date_created_operator = 'gt'
 
@@ -120,6 +120,9 @@ class Flexilims(object):
             value = locals()[field]
             if value is not None:
                 json_data[field] = value
+
+        self._replace_nones(json_data)
+
         address = 'update-one'
         # add flags
         if strict_validation:
@@ -190,15 +193,10 @@ class Flexilims(object):
             project_id = self.project_id
         assert isinstance(project_id, str)
         assert isinstance(attributes, dict)
+
         # Flexilims cannot handle None value for now
-        # requests refuses invalid json, so no NaNs
-        for k, v in attributes.items():
-            if v is None:
-                print('Cannot set attribute `%s` to None. Will put an empty string' % k)
-                attributes[k] = ''
-            if isinstance(v, float) and math.isnan(v):
-                print('Cannot set attribute `%s` to NaN. Will put an empty string' % k)
-                attributes[k] = ''
+        # requests refuses invalid json, so no NaNs either
+        self._replace_nones(attributes)
 
         json_data = dict(type=datatype, name=name, project_id=project_id,
                          attributes=attributes)
@@ -215,6 +213,62 @@ class Flexilims(object):
         if rep.ok and (rep.status_code == 200):
             return self._clean_json(rep)
         self.handle_error(rep)
+
+    def _replace_nones(self, attributes):
+        """Remove None in attributes
+
+        None are not json compatible. To upload a non you need to upload an empty
+        structure (either a list or a dict)
+
+        Args:
+            attributes: dictionary to clean (in place)
+
+        Returns:
+            None
+        """
+
+        for k, v in attributes.items():
+            if isinstance(v, tuple):
+                # make sure we have list to do in-place modification
+                v = list(v)
+                attributes[k] = v
+            if isinstance(v, dict):
+                self._replace_nones(v)
+            elif isinstance(v, list):
+                self._cleanlist(v)
+            # we might have an empty dictionary or empty list
+            if hasattr(v, '__iter__') and (not isinstance(v, str)) and (not len(v)):
+                print('Warning: %s is an empty structure and will be uploaded as '
+                      '`None`' % k)
+            if v is None:
+                print('Setting `%s` to None. Reply will contain an empty list' % k)
+                attributes[k] = []
+            elif isinstance(v, float) and math.isnan(v):
+                print('Setting `%s` to None. Reply will contain an empty list' % k)
+                attributes[k] = []
+
+    def _cleanlist(self, list2clean):
+        """ Check recursively if the list contains None or dict and replace them
+
+        Args:
+            list2clean: a list of elements
+
+        Returns:
+            None (changes in place)
+
+        """
+        for index, element in enumerate(list2clean):
+            if isinstance(element, tuple):
+                element = list(element)
+                list2clean[index] = element
+            if isinstance(element, list):
+                self._cleanlist(element)
+            elif isinstance(element, dict):
+                self._replace_nones(element)
+            elif element is None:
+                print('Setting a list element to None. Reply will contain an empty list')
+                list2clean[index] = []
+        assert all([e is not None for e in list2clean])
 
     def handle_error(self, rep):
         """handles responses that have a status code != 200"""

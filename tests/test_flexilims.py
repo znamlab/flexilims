@@ -1,4 +1,5 @@
 """Unit tests for the main flexilims wrappers"""
+import json
 
 import pytest
 import datetime
@@ -164,6 +165,31 @@ def test_update_one():
     assert rep['attributes']['nan'] == 'NaN'
     assert len(rep['attributes']['list']) == 2
     assert isinstance(rep['attributes']['number'], int)
+    # test a weird nesting with empty structures and nones
+    nested = dict(sublvl=dict(o=1, none=None),
+                  empty_lvl=[],
+                  list_list=[1, [], ['o', None]])
+    listofdict = [dict(a=2), [dict()], (1, None), (dict(t=([], (None, 1))))]
+    sess.update_one(id=entity_id,
+                    datatype='recording',
+                    strict_validation=False,
+                    allow_nulls=True,
+                    attributes=dict(nested=nested,
+                                    listofdict=listofdict))
+    get = sess.get(datatype='recording', id=entity_id)[0]['attributes']
+    assert (isinstance(get['nested'], dict))
+    assert (isinstance(get['nested']['sublvl'], dict))
+    assert get['nested']['empty_lvl'] is None
+    assert get['nested']['sublvl']['none'] is None
+    assert (isinstance(get['listofdict'], list))
+    for element, expected_type in zip(get['listofdict'], [dict, list, list, dict]):
+        assert (isinstance(element, expected_type))
+    assert get['listofdict'][1][0] is None
+    assert get['listofdict'][2][1] is None
+    assert get['listofdict'][3]['t'][0] is None
+    assert get['listofdict'][3]['t'][1][0] is None
+
+
     # when allow null is False, '' are ignored
     rep = sess.update_one(id=entity_id,
                           datatype='recording',
@@ -236,9 +262,30 @@ def test_post_req():
                     attributes=dict(session=rep['id'], trial=1,
                                     path='test/session/recording'),
                     origin_id=MOUSE_ID, strict_validation=False)
+    datatypes = dict(dataset_type='camera',
+                     path='random',
+                     int=12,
+                     float=12.1,
+                     list=[0, 1],
+                     tuple=(0, 1),
+                     dict=dict(o=2),
+                     bool=False,
+                     empty_dict=dict(),
+                     empty_list=[],
+                     empty_str=''
+                     )
+
     sess.post(datatype='dataset', name='test_ran_on_%s_dataset' % now,
-              attributes=dict(dataset_type='camera', path='random'),
-              origin_id=rep['id'], strict_validation=True)
+              attributes=datatypes, origin_id=rep['id'], strict_validation=False)
+    gt = sess.get(datatype='dataset',
+                  name='test_ran_on_%s_dataset' % now)[0]['attributes']
+    transformed = dict(tuple=[], empty_dict=None, empty_list=None)
+    for k, v in gt.items():
+        if k in transformed:
+            expected = type(transformed[k])
+        else:
+            expected = type(datatypes[k])
+        assert (isinstance(v, expected))
 
 
 def test_post_null():
@@ -303,3 +350,9 @@ def test_post_error():
                'settings. If you have &#39;null&#39; values please substitute (null) '
                'with empty string (&#39;&#39;) ')
     assert exc_info.value.args[0] == err_msg
+    json_error = dict(set={1, 2}, complex=complex(1, 1), frozenset=frozenset({1}),
+                      bytes=bytes(0), array=np.arange(10))
+    for k, v in json_error.items():
+        with pytest.raises(TypeError):
+            sess.post(datatype='dataset', project_id=PROJECT_ID, name='random',
+                      attributes=dict(k=v, path='p'))
