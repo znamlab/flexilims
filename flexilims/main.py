@@ -91,6 +91,18 @@ class Flexilims(object):
 
         self.handle_error(rep)
 
+    def get_project_info(self):
+        """Get the list of existing project and their properties
+
+        Returns:
+            proj_list (list of dict): a list with one dictionary per project
+        """
+        rep = self.session.get(self.base_url + 'projects')
+        if rep.ok and (rep.status_code == 200):
+            return self._clean_json(rep)
+
+        self.handle_error(rep)
+
     def update_one(self, id, datatype, origin_id=None, name=None, attributes=None,
                    strict_validation=True, allow_nulls=True, project_id=None):
         """Update one existing entity
