@@ -133,7 +133,7 @@ class Flexilims(object):
             if value is not None:
                 json_data[field] = value
 
-        self._replace_nones(json_data)
+        self._check_flexilims_validity(json_data)
 
         address = 'update-one'
         # add flags
@@ -165,12 +165,17 @@ class Flexilims(object):
 
         if project_id is None:
             project_id = self.project_id
+        for n, w in zip(['update_key', 'query_key'], [update_key, query_key]):
+            if (w is not None) and (w.lower() != w):
+                warnings.warn('`%s` should probably be lower case. Trying anyways' % n)
         params = dict(type=datatype, project_id=project_id, update_key=update_key,
                       update_value=update_value)
         if query_key is not None:
             params['query_key'] = query_key
         if query_value is not None:
             params['query_value'] = query_value
+
+        self._check_flexilims_validity(params)
 
         address = 'update-many'
         if strict_validation:
@@ -208,7 +213,7 @@ class Flexilims(object):
 
         # Flexilims cannot handle None value for now
         # requests refuses invalid json, so no NaNs either
-        self._replace_nones(attributes)
+        self._check_flexilims_validity(attributes)
 
         json_data = dict(type=datatype, name=name, project_id=project_id,
                          attributes=attributes)
@@ -226,7 +231,8 @@ class Flexilims(object):
             return self._clean_json(rep)
         self.handle_error(rep)
 
-    def _replace_nones(self, attributes):
+    @staticmethod
+    def _replace_nones(attributes):
         """Remove None in attributes
 
         None are not json compatible. To upload a non you need to upload an empty
@@ -245,9 +251,9 @@ class Flexilims(object):
                 v = list(v)
                 attributes[k] = v
             if isinstance(v, dict):
-                self._replace_nones(v)
+                Flexilims._replace_nones(v)
             elif isinstance(v, list):
-                self._cleanlist(v)
+                Flexilims._cleanlist(v)
             # we might have an empty dictionary or empty list
             if hasattr(v, '__iter__') and (not isinstance(v, str)) and (not len(v)):
                 print('Warning: %s is an empty structure and will be uploaded as '
@@ -259,7 +265,8 @@ class Flexilims(object):
                 print('Setting `%s` to None. Reply will contain an empty list' % k)
                 attributes[k] = []
 
-    def _cleanlist(self, list2clean):
+    @staticmethod
+    def _cleanlist(list2clean):
         """ Check recursively if the list contains None or dict and replace them
 
         Args:
@@ -274,9 +281,9 @@ class Flexilims(object):
                 element = list(element)
                 list2clean[index] = element
             if isinstance(element, list):
-                self._cleanlist(element)
+                Flexilims._cleanlist(element)
             elif isinstance(element, dict):
-                self._replace_nones(element)
+                Flexilims._replace_nones(element)
             elif element is None:
                 print('Setting a list element to None. Reply will contain an empty list')
                 list2clean[index] = []
@@ -297,6 +304,20 @@ class Flexilims(object):
         if rep.status_code == 404:
             raise IOError('Page not found is the base url: %s?' % (self.base_url + 'get'))
         raise IOError('Unknown error with status code %d' % rep.status_code)
+
+    @staticmethod
+    def _check_flexilims_validity(attributes):
+        """Check that the data can be uploaded to flexilims
+
+        - remove None
+        - lower case attributes
+        """
+        Flexilims._replace_nones(attributes)
+        for attr_name in attributes:
+            if attr_name.lower() != attr_name:
+                warnings.warn('Warning. Attribute names are not case sensitive. Replacing'
+                              ' %s by %s' % (attr_name, attr_name.lower()))
+                attributes[attr_name.lower()] = attributes.pop(attr_name)
 
     @staticmethod
     def _clean_json(rep):
