@@ -340,6 +340,24 @@ class Flexilims(object):
             txt = re.sub(r'new Date\((\d*)\)', r'"\1"', rep.content.decode(rep.encoding))
             return json.loads(txt)
 
+    @property
+    def project_id(self):
+        return self._project_id
+
+    @project_id.setter
+    def project_id(self, value):
+        if value is not None:
+            value = str(value)
+            try:
+                int(value, 16)
+            except ValueError:
+                raise FlexilimsError('project_id must be a hexadecimal project id. Got %s'
+                                     % value)
+            if len(value) != 24:
+                raise FlexilimsError('project_id must be a 24 characters long project id.'
+                                     ' Got %s' % value)
+        self._project_id = value
+
 
 def parse_error(error_message):
     """Parse the error message from flexilims bad request

@@ -21,7 +21,11 @@ def test_token():
 
 
 def test_session_creation():
-    flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password)
+    assert sess.project_id is None
+    sess.project_id = PROJECT_ID
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    assert sess.project_id == PROJECT_ID
 
 
 def test_unvalid_request():

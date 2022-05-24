@@ -1,8 +1,12 @@
 # v0.3
 
 - Add `get_project_info` to access new end-point giving project info.
-- Print a warning when setting an attribute name with non-lowercase characters
 - Crash if trying to upload an attribute name with special characters
+
+## Minor
+- Raise error when setting `Flexilims.project_id` to something else than a 24
+character hexadecimal string.
+- Print a warning when setting an attribute name with non-lowercase characters
 
 # v0.2
 
