@@ -98,6 +98,14 @@ def test_get_children_error():
                                      'hexadecimal value'
 
 
+def test_get_project_info():
+    sess = flm.Flexilims(USERNAME, password=password)
+    pj = sess.get_project_info()
+    assert isinstance(pj, list)
+    assert len(pj) > 1
+    assert all(['uuid' in p for p in pj])
+
+
 def test_update_one_errors():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     with pytest.raises(OSError) as exc_info:

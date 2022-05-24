@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='flexilims',
-    version='v0.2',
+    version='v0.3',
     url='https://github.com/znamlab/flexilims',
     license='MIT',
     author='Antonin Blot',

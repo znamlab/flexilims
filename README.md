@@ -116,3 +116,14 @@ rep = session.update_many(datatype='session', query_key='test_uniq', query_value
                           update_key='test_uniq', update_value='unique')
 ```
 
+### Utilities
+
+Other request are provided:
+
+#### Get children
+
+Returns all children from an entity
+
+#### Get project info
+
+List existing projects and their attributes
