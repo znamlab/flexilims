@@ -7,6 +7,12 @@ from requests.auth import HTTPBasicAuth
 import json
 
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
+SPECIAL_CHARACTERS = re.compile(r'[\',\.@"+=\-!#$%^&*<>?/\|}{~:]')
+
+
+class FlexilimsError(Exception):
+    """Error in flexilims code"""
+    pass
 
 
 class Flexilims(object):
@@ -314,10 +320,16 @@ class Flexilims(object):
         """
         Flexilims._replace_nones(attributes)
         for attr_name in attributes:
-            if attr_name.lower() != attr_name:
-                warnings.warn('Warning. Attribute names are not case sensitive. Replacing'
-                              ' %s by %s' % (attr_name, attr_name.lower()))
-                attributes[attr_name.lower()] = attributes.pop(attr_name)
+            if not attr_name.islower():
+                warnings.warn('Warning. Attribute names are not case sensitive on the UI.'
+                              ' `%s` might not appear online' % attr_name)
+            if r'\s' in attr_name:
+                warnings.warn('Warning. Attribute names should not contain white '
+                              'characters. `%s` might not appear online' % attr_name)
+
+            if SPECIAL_CHARACTERS.search(attr_name) is not None:
+                raise FlexilimsError('Attribute names cannot contain special '
+                                     'characters. `%s` is invalid' % attr_name)
 
     @staticmethod
     def _clean_json(rep):
