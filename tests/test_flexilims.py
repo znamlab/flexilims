@@ -5,6 +5,7 @@ import pytest
 import datetime
 import numpy as np
 import flexilims as flm
+from flexilims.main import FlexilimsError
 from flexilims.secret_password import flexilims_passwords
 
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
@@ -20,7 +21,11 @@ def test_token():
 
 
 def test_session_creation():
-    flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password)
+    assert sess.project_id is None
+    sess.project_id = PROJECT_ID
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    assert sess.project_id == PROJECT_ID
 
 
 def test_unvalid_request():
@@ -364,3 +369,10 @@ def test_post_error():
         with pytest.raises(TypeError):
             sess.post(datatype='dataset', project_id=PROJECT_ID, name='random',
                       attributes=dict(k=v, path='p'))
+
+    now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    for bad_attr in ('plu+s', "I can't", ',', '.', '2**2'):
+        with pytest.raises(FlexilimsError):
+            sess.post(datatype='session', name='test_ran_on_%s' % now,
+                      attributes={bad_attr: 'fine+value', 'path': 'o'},
+                      project_id=PROJECT_ID, strict_validation=False)
