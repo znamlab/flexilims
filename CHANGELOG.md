@@ -1,3 +1,8 @@
+# v0.4
+
+- Crash if uploading attribute with special characters in names and print warning when 
+  uploading a non-lowercase attribute
+
 # v0.3
 
 - Add `get_project_info` to access new end-point giving project info.
