@@ -6,11 +6,11 @@ import datetime
 import numpy as np
 import flexilims as flm
 from flexilims.main import FlexilimsError
-from flexilims.secret_password import flexilims_passwords
+from flexiznam.config.config_tools import get_password
 
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 USERNAME = 'blota'
-password = flexilims_passwords[USERNAME]
+password = get_password(USERNAME, 'flexilims')
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
 MOUSE_ID = '6094f7212597df357fa24a8c'
 
