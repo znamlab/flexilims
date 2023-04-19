@@ -359,6 +359,10 @@ class Flexilims(object):
         self._project_id = value
 
 
+def make_json_compatible(dictionary):
+    Flexilims._check_flexilims_validity(dictionary)
+    dictionary = Flexilims._clean_json(dictionary)
+
 def parse_error(error_message):
     """Parse the error message from flexilims bad request
 
