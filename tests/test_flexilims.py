@@ -380,7 +380,11 @@ def test_post_error():
 def test_delete():
     sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
     # post something to delete it
-    rep = sess.post(datatype='recording', name='rec_to_delete', attributes=dict(path='temp'))
+    rep = sess.get(datatype='recording', name='rec_to_delete')
+    if rep:
+        rep = rep[0]
+    else:
+        rep = sess.post(datatype='recording', name='rec_to_delete', attributes=dict(path='temp'))
     assert sess.get(datatype='recording', id=rep['id'])
     dlm = sess.delete(rep['id'])
     assert dlm.startswith('deleted successfully')
