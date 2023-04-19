@@ -376,3 +376,15 @@ def test_post_error():
             sess.post(datatype='session', name='test_ran_on_%s' % now,
                       attributes={bad_attr: 'fine+value', 'path': 'o'},
                       project_id=PROJECT_ID, strict_validation=False)
+
+def test_delete():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    # post something to delete it
+    rep = sess.post(datatype='recording', name='rec_to_delete', attributes=dict(path='temp'))
+    assert sess.get(datatype='recording', id=rep['id'])
+    dlm = sess.delete(rep['id'])
+    assert dlm.startswith('deleted successfully')
+    assert not sess.get(datatype='recording', id=rep['id']) 
+    with pytest.raises(OSError):
+        sess.delete(rep['id'])
+    
