@@ -1,3 +1,8 @@
+# v0.5
+
+- Add `delete` method to delete an entity
+- Move password management to flexiznam as it is lab specific.
+
 # v0.4
 
 - Crash if uploading attribute with special characters in names and print warning when 

@@ -7,10 +7,10 @@ data. I usually keep one mouse: `test_mouse`, id 6094f7212597df357fa24a8c
 This file just does that.
 """
 import flexilims as flm
-from flexilims.secret_password import flexilims_passwords
+from flexiznam.config.config_tools import get_password
 
 USERNAME = 'blota'
-password = flexilims_passwords[USERNAME]
+password = get_password(USERNAME, 'flexilims')
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
 MOUSE_ID = '6094f7212597df357fa24a8c'
 flm_sess = flm.Flexilims(USERNAME, password)

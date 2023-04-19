@@ -126,3 +126,7 @@ Returns all children from an entity
 #### Get project info
 
 List existing projects and their attributes
+
+# Testing
+
+Tests require `flexiznam` to get the password. 

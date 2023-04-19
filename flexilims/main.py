@@ -237,6 +237,17 @@ class Flexilims(object):
             return self._clean_json(rep)
         self.handle_error(rep)
 
+    def delete(self, id):
+        """Delete an entity
+
+        Args:
+            id: hexadecimal id of the entity to delete
+        """
+        rep = self.session.delete(self.base_url + 'delete', params=dict(id=id))
+        if rep.ok and (rep.status_code == 200):
+            return rep.content.decode('utf8')
+        self.handle_error(rep)
+
     @staticmethod
     def _replace_nones(attributes):
         """Remove None in attributes
@@ -358,6 +369,10 @@ class Flexilims(object):
                                      ' Got %s' % value)
         self._project_id = value
 
+
+def make_json_compatible(dictionary):
+    Flexilims._check_flexilims_validity(dictionary)
+    dictionary = Flexilims._clean_json(dictionary)
 
 def parse_error(error_message):
     """Parse the error message from flexilims bad request

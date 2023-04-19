@@ -6,11 +6,11 @@ import datetime
 import numpy as np
 import flexilims as flm
 from flexilims.main import FlexilimsError
-from flexilims.secret_password import flexilims_passwords
+from flexiznam.config.config_tools import get_password
 
 BASE_URL = 'https://flexylims.thecrick.org/flexilims/api/'
 USERNAME = 'blota'
-password = flexilims_passwords[USERNAME]
+password = get_password(USERNAME, 'flexilims')
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
 MOUSE_ID = '6094f7212597df357fa24a8c'
 
@@ -376,3 +376,19 @@ def test_post_error():
             sess.post(datatype='session', name='test_ran_on_%s' % now,
                       attributes={bad_attr: 'fine+value', 'path': 'o'},
                       project_id=PROJECT_ID, strict_validation=False)
+
+def test_delete():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    # post something to delete it
+    rep = sess.get(datatype='recording', name='rec_to_delete')
+    if rep:
+        rep = rep[0]
+    else:
+        rep = sess.post(datatype='recording', name='rec_to_delete', attributes=dict(path='temp'))
+    assert sess.get(datatype='recording', id=rep['id'])
+    dlm = sess.delete(rep['id'])
+    assert dlm.startswith('deleted successfully')
+    assert not sess.get(datatype='recording', id=rep['id']) 
+    with pytest.raises(OSError):
+        sess.delete(rep['id'])
+    
