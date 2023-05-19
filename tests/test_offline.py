@@ -1,4 +1,5 @@
 from flexiznam.config.config_tools import get_password
+from flexilims import main
 import pytest
 import yaml
 
@@ -13,9 +14,8 @@ MOUSE_ID = "6094f7212597df357fa24a8c"
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 
-    json_data = download_database(
-        USERNAME, password, PROJECT_ID, root_datatypes=("mouse",), verbose=True
-    )
+    flm_sess = main.Flexilims(USERNAME, password, PROJECT_ID)
+    json_data = download_database(flm_sess, root_datatypes=("mouse",), verbose=True)
     assert isinstance(json_data, dict)
     assert len(json_data) == 1
     assert next(iter(json_data)) == "test_mouse"

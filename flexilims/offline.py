@@ -8,9 +8,7 @@ Functions to generate the JSON are also included.
 from flexilims import main
 
 
-def download_database(
-    username, password, project_id, root_datatypes=("mouse"), verbose=True
-):
+def download_database(flexilims_session, root_datatypes=("mouse"), verbose=True):
     """Download a FlexiLIMS database as JSON.
 
     Args:
@@ -24,7 +22,6 @@ def download_database(
     Returns:
         dict: JSON data
     """
-    flm_sess = main.Flexilims(username, password, project_id)
 
     if isinstance(root_datatypes, str):
         root_datatypes = [root_datatypes]
@@ -33,7 +30,7 @@ def download_database(
         print("Downloading root entities")
     root_entities = []
     for datatype in root_datatypes:
-        candidates = flm_sess.get(datatype=datatype)
+        candidates = flexilims_session.get(datatype=datatype)
         for c in candidates:
             if "origin_id" in c:
                 if not verbose:
@@ -46,13 +43,13 @@ def download_database(
         print(f"Downloading children for {len(root_entities)} entity/ies")
     json_data = {}
     for i_root, entity in enumerate(root_entities):
-        json_data[entity["name"]] = download_children(entity, flm_sess)
+        json_data[entity["name"]] = download_children(entity, flexilims_session)
         if verbose:
             print(f"    ... {i_root + 1} of {len(root_entities)} entity/ies")
     return json_data
 
 
-def download_children(entity, flm_sess):
+def download_children(entity, flexilims_session):
     """Recursively download children of an entity.
 
     Args:
@@ -64,6 +61,6 @@ def download_children(entity, flm_sess):
     """
     assert "children" not in entity, "Entity already has a `children` field"
     entity["children"] = {}
-    for child in flm_sess.get_children(entity["id"]):
-        entity["children"][child["name"]] = download_children(child, flm_sess)
+    for child in flexilims_session.get_children(entity["id"]):
+        entity["children"][child["name"]] = download_children(child, flexilims_session)
     return entity
