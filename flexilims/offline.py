@@ -5,7 +5,6 @@ This will use a JSON file as a database instead of the online MongoDB.
 
 Functions to generate the JSON are also included.
 """
-from flexilims import main
 
 
 def download_database(flexilims_session, root_datatypes=("mouse"), verbose=True):
