@@ -1,3 +1,7 @@
+# v0.6
+
+- Add `offline` module to download a JSON file version of the database
+
 # v0.5
 
 - Add `delete` method to delete an entity
