@@ -2,6 +2,7 @@
 
 - Add `offline` module to download a JSON file version of the database
 - Refactor functions useful in both online and offline mode into a `utils` module
+- Create an `OffFlexilims` class to handle offline mode
 
 # v0.5
 
