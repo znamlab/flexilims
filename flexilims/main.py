@@ -11,24 +11,27 @@ BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 
 
 class Flexilims(object):
-    def __init__(self, username, password, project_id=None, base_url=BASE_URL):
+    def __init__(
+        self, username, password, project_id=None, base_url=BASE_URL, token=None
+    ):
         self.username = username
         self.base_url = base_url
         self.session = None
         self.project_id = project_id
         self.log = []
-        self.create_session(password)
+        self.create_session(password, token=token)
 
-    def create_session(self, password):
+    def create_session(self, password, token=None):
         """Create a session with authentication information"""
         if self.session is not None:
             print("Session already exists.")
             return
 
         session = requests.Session()
-        tok = get_token(self.username, password)
+        if token is None:
+            token = get_token(self.username, password)
 
-        session.headers.update(tok)
+        session.headers.update(token)
         self.session = session
         self.log.append("Session created for user %s" % self.username)
 
