@@ -5,7 +5,7 @@ import yaml
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
-password = get_password(USERNAME, "flexilims")
+password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 JSON_FILE = "/Volumes/lab-znamenskiyp/home/shared/projects/hey2_3d-vision_foodres_20220101/flexlims_json_version.yml"
