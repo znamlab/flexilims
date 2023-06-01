@@ -1,4 +1,9 @@
+# v0.7
+
+
+
 # v0.6
+2023-06-01
 
 - Add `offline` module to download a JSON file version of the database
 - Refactor functions useful in both online and offline mode into a `utils` module
