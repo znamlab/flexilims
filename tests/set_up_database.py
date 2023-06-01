@@ -10,7 +10,7 @@ import flexilims as flm
 from flexiznam.config.config_tools import get_password
 
 USERNAME = 'blota'
-password = get_password(USERNAME, 'flexilims')
+password = get_password(username=USERNAME, app='flexilims')
 PROJECT_ID = '606df1ac08df4d77c72c9aa4'  # <- test_api project
 MOUSE_ID = '6094f7212597df357fa24a8c'
 flm_sess = flm.Flexilims(USERNAME, password)
