@@ -102,6 +102,9 @@ class Flexilims(object):
                 return [data]
             return data
 
+        # XX Temporary fix
+        if rep.status_code == 500:
+            return []
         self.handle_error(rep)
 
     def get_children(self, id=None):
