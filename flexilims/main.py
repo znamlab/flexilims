@@ -97,7 +97,10 @@ class Flexilims(object):
         rep = self.session.get(self.base_url + "get", params=params)
 
         if rep.ok and (rep.status_code == 200):
-            return rep.json()
+            data = rep.json()
+            if isinstance(data, dict):
+                return [data]
+            return data
 
         self.handle_error(rep)
 
