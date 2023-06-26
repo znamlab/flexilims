@@ -26,12 +26,11 @@ def test_session_creation():
     sess.project_id = PROJECT_ID
     sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
     assert sess.project_id == PROJECT_ID
-    old_token = sess.session.headers['Authorization'].split(' ')[1]
+    old_token = sess.session.headers["Authorization"].split(" ")[1]
     tok = flm.get_token(USERNAME, password)
     sess = flm.Flexilims(USERNAME, password, token=tok)
-    assert sess.session.headers['Authorization'] != old_token
-    assert sess.session.headers['Authorization'] == tok['Authorization']
-
+    assert sess.session.headers["Authorization"] != old_token
+    assert sess.session.headers["Authorization"] == tok["Authorization"]
 
 
 def test_unvalid_request():
@@ -46,7 +45,7 @@ def test_unvalid_request():
         "[type, name, origin_id, project_id, attributes, "
         "custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls]"
+        "strict_validation, allow_nulls, external_resource]"
     )
     err_msg = " randomstuff is not valid. Valid fields are "
     assert err["message"] == err_msg + get_valid_fields
@@ -67,6 +66,8 @@ def test_get_req():
     )
     assert len(r) == 1
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, id=MOUSE_ID)
+    assert len(r) == 0
+    r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="MOUSE_ID")
     assert len(r) == 0
     r = sess.get(datatype="mouse", project_id=PROJECT_ID, id=MOUSE_ID)
     assert len(r) == 1
@@ -434,7 +435,7 @@ def test_post_error():
         "Error 400:  other_relations is not valid. Valid fields are [type, name, "
         "origin_id, project_id, attributes, custom_entities, id, date_created, "
         "created_by, date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls]"
+        "strict_validation, allow_nulls, external_resource]"
     )
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
