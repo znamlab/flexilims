@@ -92,6 +92,9 @@ def test_get_req():
     assert all(el["dateCreated"] <= cutoff for el in r)
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    # test getting by name with no datatype
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset")
+    assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
 
 
 def test_get_error():
@@ -111,6 +114,10 @@ def test_get_error():
         exc_info.value.args[0] == "Error 400:  please provide a valid hexadecimal "
         "value for id"
     )
+    with pytest.raises(OSError) as exc_info:
+        # test getting by id with no datatype
+        sess.get(project_id=PROJECT_ID, id=MOUSE_ID)
+    assert exc_info.value.args[0] == "Error 400:  please specify type"
 
 
 def test_get_children():
