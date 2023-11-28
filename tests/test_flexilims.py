@@ -40,7 +40,6 @@ def test_session_creation():
     assert sess.session.headers["Authorization"] != old_token
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
-
 def test_safe_execute():
     from flexilims.utils import AuthenticationError
     sess = flm.Flexilims(USERNAME, password)
