@@ -68,7 +68,7 @@ def test_unvalid_request():
     assert rep.status_code == 400
     err = flm.main.parse_error(rep.content)
     get_valid_fields = (
-        "[type, name, origin_id, project_id, attributes, "
+        "[type, name, origin_id, custom_entity_id, project_id, attributes, "
         "custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
         "strict_validation, allow_nulls, external_resource, query_value_data_type, "
