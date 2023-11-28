@@ -1,5 +1,4 @@
 """Generic function to interface with flexilims"""
-
 import re
 import time
 import warnings
@@ -325,7 +324,6 @@ class Flexilims(object):
             function: function to execute
             *args: arguments to pass to the function
             **kwargs: keyword arguments to pass to the function
-
         Returns:
             json or content of the response
         """
