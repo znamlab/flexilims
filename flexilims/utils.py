@@ -13,6 +13,12 @@ class FlexilimsError(Exception):
     pass
 
 
+class AuthenticationError(Exception):
+    """Error 403 when authenticating"""
+
+    pass
+
+
 def check_flexilims_validity(attributes):
     """Check that the data can be uploaded to flexilims
 
