@@ -124,8 +124,9 @@ class Flexilims(object):
             if locals()[arg_name] is not None:
                 params[arg_name] = locals()[arg_name]
 
-        return self.safe_execute('json', self.session.get, self.base_url + "get", params=params)
-        
+        return self.safe_execute(
+            "json", self.session.get, self.base_url + "get", params=params
+        )
 
     def get_children(self, id=None):
         """Get the children of one entry based on its hexadecimal id
@@ -133,10 +134,9 @@ class Flexilims(object):
         Args:
             id: hexadecimal id of the parent object
         """
-        return self.safe_execute('json',
-            self.session.get, self.base_url + "get-children", params=dict(id=id)
+        return self.safe_execute(
+            "json", self.session.get, self.base_url + "get-children", params=dict(id=id)
         )
-        
 
     def get_project_info(self):
         """Get the list of existing project and their properties
@@ -144,8 +144,7 @@ class Flexilims(object):
         Returns:
             proj_list (list of dict): a list with one dictionary per project
         """
-        return self.safe_execute('json', self.session.get, self.base_url + "projects")
-        
+        return self.safe_execute("json", self.session.get, self.base_url + "projects")
 
     def update_one(
         self,
@@ -194,10 +193,13 @@ class Flexilims(object):
             params["strict_validation"] = "true"
         if allow_nulls:
             params["allow_nulls"] = "true"
-        return self.safe_execute('json', 
-            self.session.put, self.base_url + address, params=params, json=json_data
+        return self.safe_execute(
+            "json",
+            self.session.put,
+            self.base_url + address,
+            params=params,
+            json=json_data,
         )
-        
 
     def update_many(
         self,
@@ -246,8 +248,8 @@ class Flexilims(object):
         if strict_validation:
             address += "?strict_validation=true"
 
-        return self.safe_execute('content',
-            self.session.put, self.base_url + address, params=params
+        return self.safe_execute(
+            "content", self.session.put, self.base_url + address, params=params
         )
 
     def post(
@@ -298,19 +300,19 @@ class Flexilims(object):
         if strict_validation:
             address += "?strict_validation=true"
 
-        return  self.safe_execute('json',
-            self.session.post, self.base_url + address, json=json_data
+        return self.safe_execute(
+            "json", self.session.post, self.base_url + address, json=json_data
         )
 
-    def safe_execute(self,mode, function,  *args, **kwargs):
+    def safe_execute(self, mode, function, *args, **kwargs):
         """Execute a function and update the token if needed
-        
+
         Args:
             mode: 'json' or 'content' to return the json or the content of the response
             function: function to execute
             *args: arguments to pass to the function
             **kwargs: keyword arguments to pass to the function
-            
+
         Returns:
             json or content of the response
         """
@@ -322,9 +324,9 @@ class Flexilims(object):
             self.update_token()
             rep = function(*args, **kwargs)
             self.handle_error(rep)
-        if mode == 'json':
+        if mode == "json":
             return rep.json()
-        elif mode == 'content':
+        elif mode == "content":
             return rep.content.decode("utf8")
         else:
             raise ValueError("mode must be 'json' or 'content'")
@@ -335,10 +337,9 @@ class Flexilims(object):
         Args:
             id: hexadecimal id of the entity to delete
         """
-        return self.safe_execute('content',
-            self.session.delete, self.base_url + "delete", params=dict(id=id)
+        return self.safe_execute(
+            "content", self.session.delete, self.base_url + "delete", params=dict(id=id)
         )
-        
 
     def handle_error(self, rep):
         """handles responses that have a status code != 200"""

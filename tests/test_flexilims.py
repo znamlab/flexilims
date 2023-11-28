@@ -40,10 +40,12 @@ def test_session_creation():
     assert sess.session.headers["Authorization"] != old_token
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
+
 def test_safe_execute():
     from flexilims.utils import AuthenticationError
+
     sess = flm.Flexilims(USERNAME, password)
-    rep = sess.safe_execute('json', sess.session.get, sess.base_url + "projects")
+    rep = sess.safe_execute("json", sess.session.get, sess.base_url + "projects")
     assert len(rep) >= 1
     sess.session.headers["Authorization"] = "Bearer invalid_token"
     with pytest.raises(AuthenticationError) as exc_info:
@@ -52,10 +54,9 @@ def test_safe_execute():
     assert exc_info.value.args[0] == "Forbidden. Are you logged in?"
     # this does not change the token
     assert sess.session.headers["Authorization"] == "Bearer invalid_token"
-    rep = sess.safe_execute('json', sess.session.get, sess.base_url + "projects")
-    # this does 
+    rep = sess.safe_execute("json", sess.session.get, sess.base_url + "projects")
+    # this does
     assert sess.session.headers["Authorization"] != "Bearer invalid_token"
-    
 
 
 def test_unvalid_request():
