@@ -8,6 +8,7 @@ import flexilims as flm
 from flexilims.main import FlexilimsError
 from flexiznam.config.config_tools import get_password
 
+
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
 password = get_password(username=USERNAME, app="flexilims")
@@ -18,6 +19,13 @@ MOUSE_ID = "6094f7212597df357fa24a8c"
 def test_token():
     tok = flm.get_token(USERNAME, password)
     assert len(tok)
+
+
+def test_update_token():
+    sess = flm.Flexilims(USERNAME, password)
+    ori_tok = sess.session.headers["Authorization"]
+    sess.update_token()
+    assert sess.session.headers["Authorization"] != ori_tok
 
 
 def test_session_creation():
@@ -33,6 +41,24 @@ def test_session_creation():
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
 
+def test_safe_execute():
+    from flexilims.utils import AuthenticationError
+
+    sess = flm.Flexilims(USERNAME, password)
+    rep = sess.safe_execute("json", sess.session.get, sess.base_url + "projects")
+    assert len(rep) >= 1
+    sess.session.headers["Authorization"] = "Bearer invalid_token"
+    with pytest.raises(AuthenticationError) as exc_info:
+        rep = sess.session.get(sess.base_url + "projects")
+        sess.handle_error(rep)
+    assert exc_info.value.args[0] == "Forbidden. Are you logged in?"
+    # this does not change the token
+    assert sess.session.headers["Authorization"] == "Bearer invalid_token"
+    rep = sess.safe_execute("json", sess.session.get, sess.base_url + "projects")
+    # this does
+    assert sess.session.headers["Authorization"] != "Bearer invalid_token"
+
+
 def test_unvalid_request():
     sess = flm.Flexilims(USERNAME, password)
     rep = sess.session.get(
@@ -45,7 +71,8 @@ def test_unvalid_request():
         "[type, name, origin_id, custom_entity_id, project_id, attributes, "
         "custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls, external_resource, query_value_data_type]"
+        "strict_validation, allow_nulls, external_resource, query_value_data_type, "
+        "offset, limit]"
     )
     err_msg = " randomstuff is not valid. Valid fields are "
     assert err["message"] == err_msg + get_valid_fields
@@ -66,6 +93,8 @@ def test_get_req():
     )
     assert len(r) == 1
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, id=MOUSE_ID)
+    assert len(r) == 0
+    r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="MOUSE_ID")
     assert len(r) == 0
     r = sess.get(datatype="mouse", project_id=PROJECT_ID, id=MOUSE_ID)
     assert len(r) == 1
@@ -90,6 +119,9 @@ def test_get_req():
     assert all(el["dateCreated"] <= cutoff for el in r)
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    # test getting by name with no datatype
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset")
+    assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
 
 
 def test_get_error():
@@ -109,6 +141,10 @@ def test_get_error():
         exc_info.value.args[0] == "Error 400:  please provide a valid hexadecimal "
         "value for id"
     )
+    with pytest.raises(OSError) as exc_info:
+        # test getting by id with no datatype
+        sess.get(project_id=PROJECT_ID, id=MOUSE_ID)
+    assert exc_info.value.args[0] == "Error 400:  please specify type"
 
 
 def test_get_children():
@@ -386,7 +422,7 @@ def test_post_req():
 def test_post_null():
     sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    sess.post(
+    rep = sess.post(
         datatype="session",
         name="test_ran_on_%s" % now,
         attributes=dict(
@@ -394,6 +430,8 @@ def test_post_null():
         ),
         strict_validation=False,
     )
+    assert rep["attributes"]["empty"] == ""
+    assert rep["attributes"]["none"] == []
 
 
 def test_post_error():
@@ -433,7 +471,8 @@ def test_post_error():
         "Error 400:  other_relations is not valid. Valid fields are [type, name, "
         "origin_id, custom_entity_id, project_id, attributes, custom_entities, id, "
         "date_created, created_by, date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls, external_resource, query_value_data_type]"
+        "strict_validation, allow_nulls, external_resource, query_value_data_type, "
+        "offset, limit]"
     )
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:

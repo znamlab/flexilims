@@ -1,4 +1,13 @@
+# v0.7
+
+- Add a `safe_execute` method to `Flexilims.Session` to token refresh. This method
+  is used inside all other methods to ensure that the token is valid before
+  executing the request. If the token is invalid, the method will try to refresh
+  it and execute the request again. If the token cannot be refreshed, the method
+  will raise an error.
+
 # v0.6
+2023-06-01
 
 - Add `offline` module to download a JSON file version of the database
 - Refactor functions useful in both online and offline mode into a `utils` module

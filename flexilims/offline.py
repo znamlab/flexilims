@@ -90,6 +90,7 @@ class OffFlexilims(object):
         if project_id is not None:
             print("Offline mode ignores project_id")
         raise NotImplementedError()
+
     def get_children(self, id=None):
         """Get the children of one entry based on its hexadecimal id
 
@@ -97,7 +98,6 @@ class OffFlexilims(object):
         :return: list of dict with one element per child
         """
         raise NotImplementedError()
-    
 
 
 def download_database(flexilims_session, root_datatypes=("mouse"), verbose=True):

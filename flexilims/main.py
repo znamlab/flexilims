@@ -1,20 +1,35 @@
 """Generic function to interface with flexilims"""
-import math
+import time
 import re
 import requests
 import warnings
 from requests.auth import HTTPBasicAuth
-from flexilims.utils import FlexilimsError, check_flexilims_validity
+from flexilims.utils import (
+    FlexilimsError,
+    AuthenticationError,
+    check_flexilims_validity,
+)
 import json
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 
 
 class Flexilims(object):
+    """Main class to interface with flexilims
+
+    Args:
+        username: username to connect to flexilims
+        password: password to connect to flexilims
+        project_id: hexadecimal id of the project to use
+        base_url: base url of the flexilims server
+        token: if you already have a token, you can pass it here
+    """
+
     def __init__(
         self, username, password, project_id=None, base_url=BASE_URL, token=None
     ):
         self.username = username
+        self.password = password
         self.base_url = base_url
         self.session = None
         self.project_id = project_id
@@ -34,6 +49,21 @@ class Flexilims(object):
         session.headers.update(token)
         self.session = session
         self.log.append("Session created for user %s" % self.username)
+
+    def update_token(self, timeout=600):
+        """Update the token in the session"""
+        token = None
+        elapsed_time = 0
+        while token is None and elapsed_time < timeout:
+            elapsed_time += 5
+            try:
+                token = get_token(self.username, self.password)
+            except IOError:
+                print("Failed to get a token. Retrying in 5 seconds.")
+                time.sleep(5)
+        if token is None:
+            raise IOError("Failed to get a token. Timeout reached.")
+        self.session.headers.update(token)
 
     def get(
         self,
@@ -94,24 +124,19 @@ class Flexilims(object):
             if locals()[arg_name] is not None:
                 params[arg_name] = locals()[arg_name]
 
-        rep = self.session.get(self.base_url + "get", params=params)
-
-        if rep.ok and (rep.status_code == 200):
-            return rep.json()
-
-        self.handle_error(rep)
+        return self.safe_execute(
+            "json", self.session.get, self.base_url + "get", params=params
+        )
 
     def get_children(self, id=None):
         """Get the children of one entry based on its hexadecimal id
 
-        :param id: hexadecimal ID of the parent
-        :return: list of dict with one element per child
+        Args:
+            id: hexadecimal id of the parent object
         """
-        rep = self.session.get(self.base_url + "get-children", params=dict(id=id))
-        if rep.ok and (rep.status_code == 200):
-            return rep.json()
-
-        self.handle_error(rep)
+        return self.safe_execute(
+            "json", self.session.get, self.base_url + "get-children", params=dict(id=id)
+        )
 
     def get_project_info(self):
         """Get the list of existing project and their properties
@@ -119,11 +144,7 @@ class Flexilims(object):
         Returns:
             proj_list (list of dict): a list with one dictionary per project
         """
-        rep = self.session.get(self.base_url + "projects")
-        if rep.ok and (rep.status_code == 200):
-            return rep.json()
-
-        self.handle_error(rep)
+        return self.safe_execute("json", self.session.get, self.base_url + "projects")
 
     def update_one(
         self,
@@ -172,10 +193,13 @@ class Flexilims(object):
             params["strict_validation"] = "true"
         if allow_nulls:
             params["allow_nulls"] = "true"
-        rep = self.session.put(self.base_url + address, params=params, json=json_data)
-        if rep.ok and (rep.status_code == 200):
-            return rep.json()
-        self.handle_error(rep)
+        return self.safe_execute(
+            "json",
+            self.session.put,
+            self.base_url + address,
+            params=params,
+            json=json_data,
+        )
 
     def update_many(
         self,
@@ -223,12 +247,10 @@ class Flexilims(object):
         address = "update-many"
         if strict_validation:
             address += "?strict_validation=true"
-        rep = self.session.put(self.base_url + address, params=params)
-        self.log.append(rep.content)
 
-        if rep.ok and (rep.status_code == 200):
-            return rep.content.decode("utf8")
-        self.handle_error(rep)
+        return self.safe_execute(
+            "content", self.session.put, self.base_url + address, params=params
+        )
 
     def post(
         self,
@@ -277,11 +299,37 @@ class Flexilims(object):
         address = "save"
         if strict_validation:
             address += "?strict_validation=true"
-        rep = self.session.post(self.base_url + address, json=json_data)
 
-        if rep.ok and (rep.status_code == 200):
+        return self.safe_execute(
+            "json", self.session.post, self.base_url + address, json=json_data
+        )
+
+    def safe_execute(self, mode, function, *args, **kwargs):
+        """Execute a function and update the token if needed
+
+        Args:
+            mode: 'json' or 'content' to return the json or the content of the response
+            function: function to execute
+            *args: arguments to pass to the function
+            **kwargs: keyword arguments to pass to the function
+
+        Returns:
+            json or content of the response
+        """
+        try:
+            rep = function(*args, **kwargs)
+            self.handle_error(rep)
+        except AuthenticationError as e:
+            # try to update the token and retry
+            self.update_token()
+            rep = function(*args, **kwargs)
+            self.handle_error(rep)
+        if mode == "json":
             return rep.json()
-        self.handle_error(rep)
+        elif mode == "content":
+            return rep.content.decode("utf8")
+        else:
+            raise ValueError("mode must be 'json' or 'content'")
 
     def delete(self, id):
         """Delete an entity
@@ -289,10 +337,9 @@ class Flexilims(object):
         Args:
             id: hexadecimal id of the entity to delete
         """
-        rep = self.session.delete(self.base_url + "delete", params=dict(id=id))
-        if rep.ok and (rep.status_code == 200):
-            return rep.content.decode("utf8")
-        self.handle_error(rep)
+        return self.safe_execute(
+            "content", self.session.delete, self.base_url + "delete", params=dict(id=id)
+        )
 
     def handle_error(self, rep):
         """handles responses that have a status code != 200"""
@@ -312,6 +359,8 @@ class Flexilims(object):
             raise IOError(
                 "Page not found is the base url: %s?" % (self.base_url + "get")
             )
+        if rep.status_code == 403:
+            raise AuthenticationError("Forbidden. Are you logged in?")
         raise IOError("Unknown error with status code %d" % rep.status_code)
 
     @property
