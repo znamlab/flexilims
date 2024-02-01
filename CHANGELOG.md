@@ -1,3 +1,8 @@
+# v0.8
+
+Minor:
+- Remove wrong warning when status code is 200
+
 # v0.7
 
 - Add a `safe_execute` method to `Flexilims.Session` to token refresh. This method
