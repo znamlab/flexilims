@@ -343,6 +343,8 @@ class Flexilims(object):
 
     def handle_error(self, rep):
         """handles responses that have a status code != 200"""
+        if rep.status_code == 200:
+            return
         # error handling:
         if rep.ok:
             warnings.warn(
