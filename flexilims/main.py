@@ -27,7 +27,7 @@ class Flexilims(object):
 
     def __init__(
         self, username, password, project_id=None, base_url=BASE_URL, token=None
-    ):
+    ):  
         self.username = username
         self.password = password
         self.base_url = base_url
@@ -128,7 +128,7 @@ class Flexilims(object):
             "json", self.session.get, self.base_url + "get", params=params
         )
 
-    def get_children(self, id=None):
+    def get_children(self, id):
         """Get the children of one entry based on its hexadecimal id
 
         Args:
