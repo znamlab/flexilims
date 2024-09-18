@@ -13,6 +13,7 @@ test_mouse:
           attributes:
             path: test/session/recording
             rec_attr: attribute of recording
+            test_write: original
           children:
             test_dataset:
               attributes:

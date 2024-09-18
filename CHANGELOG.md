@@ -1,5 +1,7 @@
 # v0.8
 
+- Add an `offline` mode to emulate database access from a YAML file
+
 Minor:
 - Remove wrong warning when status code is 200
 
