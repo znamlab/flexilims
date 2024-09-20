@@ -4,6 +4,8 @@ data. I usually keep one mouse: `test_mouse`, id 6094f7212597df357fa24a8c
 
 This file just does that.
 """
+from pathlib import Path
+import json
 import flexilims as flm
 from flexiznam.config.config_tools import get_password
 
@@ -56,3 +58,13 @@ ds_rep = flm_sess.post(
     ),
     strict_validation=False,
 )
+
+# Also download the test data
+UPDATE_TEST_DATA = True
+if UPDATE_TEST_DATA:
+    db = flm.download_database(
+        flexilims_session=flm_sess, types=["mouse", "session", "recording", "dataset"]
+    )
+    target = Path(__file__).parent / "test_data.json"
+    with open(target, "w") as f:
+        json.dump(db, f)
