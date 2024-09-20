@@ -28,6 +28,10 @@ class Flexilims(object):
     def __init__(
         self, username, password, project_id=None, base_url=BASE_URL, token=None
     ):  
+        
+        assert isinstance(base_url, str), "base_url must be a string"
+        assert base_url.endswith("api/"), "base_url must end with 'api/'"
+        
         self.username = username
         self.password = password
         self.base_url = base_url
@@ -44,7 +48,7 @@ class Flexilims(object):
 
         session = requests.Session()
         if token is None:
-            token = get_token(self.username, password)
+            token = get_token(self.username, password, self.base_url)
 
         session.headers.update(token)
         self.session = session
@@ -57,7 +61,7 @@ class Flexilims(object):
         while token is None and elapsed_time < timeout:
             elapsed_time += 5
             try:
-                token = get_token(self.username, self.password)
+                token = get_token(self.username, self.password, self.base_url)
             except IOError:
                 print("Failed to get a token. Retrying in 5 seconds.")
                 time.sleep(5)

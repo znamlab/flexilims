@@ -8,8 +8,8 @@ import flexilims as flm
 from flexilims.main import FlexilimsError
 from flexiznam.config.config_tools import get_password
 
-
-BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
+TEST_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
+# BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
 password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
@@ -17,26 +17,26 @@ MOUSE_ID = "6094f7212597df357fa24a8c"
 
 
 def test_token():
-    tok = flm.get_token(USERNAME, password)
+    tok = flm.get_token(USERNAME, password, base_url=TEST_URL)
     assert len(tok)
 
 
 def test_update_token():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     ori_tok = sess.session.headers["Authorization"]
     sess.update_token()
     assert sess.session.headers["Authorization"] != ori_tok
 
 
 def test_session_creation():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     assert sess.project_id is None
     sess.project_id = PROJECT_ID
-    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
     assert sess.project_id == PROJECT_ID
     old_token = sess.session.headers["Authorization"].split(" ")[1]
-    tok = flm.get_token(USERNAME, password)
-    sess = flm.Flexilims(USERNAME, password, token=tok)
+    tok = flm.get_token(USERNAME, password, base_url=TEST_URL)
+    sess = flm.Flexilims(USERNAME, password, token=tok, base_url=TEST_URL)
     assert sess.session.headers["Authorization"] != old_token
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
@@ -44,7 +44,7 @@ def test_session_creation():
 def test_safe_execute():
     from flexilims.utils import AuthenticationError
 
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     rep = sess.safe_execute("json", sess.session.get, sess.base_url + "projects")
     assert len(rep) >= 1
     sess.session.headers["Authorization"] = "Bearer invalid_token"
@@ -60,7 +60,8 @@ def test_safe_execute():
 
 
 def test_unvalid_request():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
+    sess.update_token()
     rep = sess.session.get(
         sess.base_url + "get",
         params=dict(type="recording", randomstuff="randomtext", project_id=PROJECT_ID),
@@ -79,7 +80,7 @@ def test_unvalid_request():
 
 
 def test_get_req():
-    sess = flm.Flexilims(USERNAME, password, base_url=BASE_URL)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     # basic test
     sess.get(datatype="session", project_id=PROJECT_ID)
     r = sess.get(datatype="recording", project_id=PROJECT_ID)
@@ -125,7 +126,7 @@ def test_get_req():
 
 
 def test_get_error():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype="InvalidType", project_id=PROJECT_ID)
     assert exc_info.value.args[0] == "Error 400:  type InvalidType is not defined"
@@ -148,14 +149,14 @@ def test_get_error():
 
 
 def test_get_children():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     ch = sess.get_children(id=MOUSE_ID)
     assert len(ch) >= 1
     assert "test_session" in [c["name"] for c in ch]
 
 
 def test_get_children_error():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
         sess.get_children(id="unvalid_id")
     assert (
@@ -165,7 +166,7 @@ def test_get_children_error():
 
 
 def test_get_project_info():
-    sess = flm.Flexilims(USERNAME, password=password)
+    sess = flm.Flexilims(USERNAME, password=password, base_url=TEST_URL)
     pj = sess.get_project_info()
     assert isinstance(pj, list)
     assert len(pj) > 1
@@ -173,7 +174,7 @@ def test_get_project_info():
 
 
 def test_update_one_errors():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
         sess.update_one(id=MOUSE_ID, datatype="mouse", attributes=dict(camel="humpy"))
     assert (
@@ -225,7 +226,7 @@ def test_update_one_errors():
 
 def test_update_one():
     # test without project_id
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     original = sess.get(datatype="recording", name="test_recording")[0]
 
     orid = original["origin_id"]
@@ -328,7 +329,7 @@ def test_update_one():
 
 
 def test_update_many_req():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     # get to know how many session there are
     n_sess = len(sess.get(datatype="session"))
     rep = sess.update_many(
@@ -372,13 +373,15 @@ def test_update_many_req():
 
 
 def test_post_req():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     rep = sess.post(
         datatype="session",
         name="test_ran_on_%s" % now,
         attributes=dict(path="test/session"),
     )
+    assert rep["attributes"]["path"] == "test/session"
+    ids = [(rep["id"], rep['type'])]
     rep = sess.post(
         datatype="recording",
         name="test_ran_on_%s_with_origin" % now,
@@ -386,6 +389,8 @@ def test_post_req():
         origin_id=MOUSE_ID,
         strict_validation=False,
     )
+    ids.append((rep["id"], rep['type']))
+
     datatypes = dict(
         dataset_type="camera",
         path="random",
@@ -399,14 +404,14 @@ def test_post_req():
         empty_list=[],
         empty_str="",
     )
-
-    sess.post(
+    rep=sess.post(
         datatype="dataset",
         name="test_ran_on_%s_dataset" % now,
         attributes=datatypes,
         origin_id=rep["id"],
         strict_validation=False,
     )
+    ids.append((rep["id"], rep['type']))
     gt = sess.get(datatype="dataset", name="test_ran_on_%s_dataset" % now)[0][
         "attributes"
     ]
@@ -417,11 +422,20 @@ def test_post_req():
         else:
             expected = type(datatypes[k])
         assert isinstance(v, expected)
+    # try to keep the db a bit clean
+    for i, dtype in ids:
+        try:
+            sess.delete(i)
+        except OSError:
+            # weirdly delete is sometimes recursive.
+            print(f"Could not delete {dtype} {i}")
+        assert not sess.get(datatype=dtype, id=i)
+    print('Done')
 
 
 def test_post_null():
-    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
-    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL)
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     rep = sess.post(
         datatype="session",
         name="test_ran_on_%s" % now,
@@ -432,10 +446,12 @@ def test_post_null():
     )
     assert rep["attributes"]["empty"] == ""
     assert rep["attributes"]["none"] == []
+    # try to keep the db a bit clean
+    sess.delete(rep["id"])
 
 
 def test_post_error():
-    sess = flm.Flexilims(USERNAME, password)
+    sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(IOError):
         sess.post(
             datatype="recording",
@@ -550,7 +566,7 @@ def test_post_error():
 
 
 def test_delete():
-    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID)
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
     # post something to delete it
     rep = sess.get(datatype="recording", name="rec_to_delete")
     if rep:
@@ -565,3 +581,22 @@ def test_delete():
     assert not sess.get(datatype="recording", id=rep["id"])
     with pytest.raises(OSError):
         sess.delete(rep["id"])
+
+if __name__ == "__main__":
+    test_token()
+    test_update_token()
+    test_session_creation()
+    test_safe_execute()
+    test_unvalid_request()
+    test_get_req()
+    test_get_error()
+    test_get_children()
+    test_get_children_error()
+    test_get_project_info()
+    test_update_one_errors()
+    test_update_one()
+    test_update_many_req()
+    test_post_req()
+    test_post_null()
+    test_post_error()
+    test_delete()
