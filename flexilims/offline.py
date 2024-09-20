@@ -15,14 +15,14 @@ from flexilims.utils import FlexilimsError, format_results, check_flexilims_vali
 class OfflineFlexilims(object):
     def __init__(self, yaml_file, project_id=None, edit_file=False):
         """Create offline Flexilims session.
-        
+
         Args:
             yaml_file: path to the yaml file
-            project_id (optional): hexadecimal id of the project. Not used in offline 
+            project_id (optional): hexadecimal id of the project. Not used in offline
                 mode, provided for compatibility with the online version.
             edit_file (optional): if True, the file will be editable. Otherwise, only
                 the loaded data will be affected. Default to False.
-        
+
         Returns:
             OfflineFlexilims object
         """
@@ -55,6 +55,7 @@ class OfflineFlexilims(object):
 
     def _flat_data(self, keep_children=False):
         """Flatten the yaml data to a list of dict."""
+
         def recur_add_children(data, output_list):
             # data keys are the name which are also in valus["name"]. Ignore them.
             for properties in data.values():
@@ -67,22 +68,24 @@ class OfflineFlexilims(object):
                 if children:
                     recur_add_children(children, output_list)
             return output_list
+
         data_list = []
         recur_add_children(self._yaml_data, data_list)
         return data_list
-    
+
     def _find_entity(self, id):
         """Internal function to find a reference to an entity in the database.
-        
-        All the other functions should return copies of the entity to avoid modifying 
+
+        All the other functions should return copies of the entity to avoid modifying
         the "database".
-        
+
         Args:
             id: hexadecimal id of the entity
-        
+
         Returns:
             a reference to the entity in the database
         """
+
         def recur_find(data, id):
             for properties in data.values():
                 if properties["id"] == id:
@@ -93,6 +96,7 @@ class OfflineFlexilims(object):
                     if found:
                         return found
             return None
+
         return recur_find(self._yaml_data, id)
 
     def get(
@@ -130,20 +134,18 @@ class OfflineFlexilims(object):
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
-        
+
         data = pd.DataFrame(self._flat_data())
-        filters = dict(type=datatype,
-            createdBy=created_by,
-            id=id,
-            name=name,
-            origin_id=origin_id)
+        filters = dict(
+            type=datatype, createdBy=created_by, id=id, name=name, origin_id=origin_id
+        )
         for key, value in filters.items():
             if value is not None:
                 data = data[data[key] == value]
         if date_created is not None:
             if date_created_operator is None:
                 date_created_operator = "gt"
-            
+
             if date_created_operator == "gt":
                 data = data[data["dateCreated"] > date_created]
             elif date_created_operator == "lt":
@@ -153,20 +155,19 @@ class OfflineFlexilims(object):
         if query_key is not None:
             valid = []
             for _, el in data.iterrows():
-                if query_key in el['attributes']:
-                    if el['attributes'][query_key] == query_value:
+                if query_key in el["attributes"]:
+                    if el["attributes"][query_key] == query_value:
                         valid.append(el)
             return valid
         # get returns a list of dict
         return data.to_dict(orient="records")
-    
 
     def get_children(self, id):
         """Get the children of one entry based on its hexadecimal id
-        
+
         Args:
             id: hexadecimal id of the object
-        
+
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
@@ -178,22 +179,21 @@ class OfflineFlexilims(object):
             return []
         # remove children below
         output = []
-        for child, prop in parent['children'].items():
+        for child, prop in parent["children"].items():
             childless = {k: v for k, v in prop.items() if k != "children"}
             output.append(deepcopy(childless))
         return output
-        
 
     def update_token(self):
         """Update the token of the session."""
         print("Offline mode does not need a token")
         return "OFFLINE"
-    
+
     def get_project_info(self):
         """Get the information of the current project."""
         raise FlexilimsError("Offline mode does not have project info")
-    
-    def update_one(   
+
+    def update_one(
         self,
         id,
         datatype=None,
@@ -203,7 +203,7 @@ class OfflineFlexilims(object):
         strict_validation=True,
         allow_nulls=True,
         project_id=None,
-        ):
+    ):
         """Update one entity in the database.
 
         Args:
@@ -236,23 +236,26 @@ class OfflineFlexilims(object):
 
         if origin_id is not None:
             entity_to_update["origin_id"] = origin_id
-            warn("Updating origin_id will break children/parent hierarchy in offline mode")
+            warn(
+                "Updating origin_id will break children/parent hierarchy in offline mode"
+            )
         if name is not None:
             entity_to_update["name"] = name
 
-        
         attr2change = {}
         if attributes is not None:
-            self._recur_clean(json_data['attributes'], attr2change, allow_nulls=allow_nulls)
+            self._recur_clean(
+                json_data["attributes"], attr2change, allow_nulls=allow_nulls
+            )
             entity_to_update["attributes"].update(attr2change)
-        
+
         if self._editable:
             print(f"Updating entity {entity_to_update['name']} in {self._yaml_file}")
             with open(self._yaml_file, "w") as f:
                 yaml.dump(self._yaml_data, f)
         return entity_to_update
 
-    def _recur_clean(self, attr, output,  allow_nulls=True, allow_strings=False):
+    def _recur_clean(self, attr, output, allow_nulls=True, allow_strings=False):
         unvalid = [[], (), None, {}]
         if not allow_strings:
             unvalid.append("")
@@ -263,7 +266,7 @@ class OfflineFlexilims(object):
                 continue
             if isinstance(v, list):
                 warn("Updating list might not work in offline mode")
-            
+
             if v in unvalid:
                 if not allow_nulls:
                     continue
@@ -273,8 +276,9 @@ class OfflineFlexilims(object):
 
     def update_many(self, entities):
         raise NotImplementedError("update_many is not implemented in offline mode")
-    
-    def post(self,
+
+    def post(
+        self,
         datatype,
         name,
         attributes,
@@ -284,7 +288,7 @@ class OfflineFlexilims(object):
         strict_validation=True,
     ):
         """Create a new entity in the database.
-        
+
         Args:
             datatype: entity type on flexilims
             name: name of the entity. Must be unique
@@ -293,7 +297,7 @@ class OfflineFlexilims(object):
             origin_id: (optional) hexadecimal id of the origin for this entity
             other_relations: (optional) dictionary of other relations for the entity
             strict_validation: Not used in offline mode
-        
+
         Returns: the created entity
         """
         assert isinstance(attributes, dict)
@@ -305,20 +309,18 @@ class OfflineFlexilims(object):
         if attributes is not None:
             self._recur_clean(attributes, attr2change, allow_strings=True)
 
-        json_data = dict(
-            type=datatype, name=name, attributes=attr2change
-        )
+        json_data = dict(type=datatype, name=name, attributes=attr2change)
 
         # create a random hexadecimal id
-        existing = [el['id'] for el in self._flat_data()]
+        existing = [el["id"] for el in self._flat_data()]
         n = 0
-        
+
         def int2hex(n):
             hex_id = hex(n)
             if len(hex_id) < 24:
                 hex_id = "0x" + "0" * (24 - len(hex_id)) + hex_id[2:]
             return hex_id
-        
+
         while int2hex(n) in existing:
             n += 1
         json_data["id"] = int2hex(n)
@@ -340,63 +342,66 @@ class OfflineFlexilims(object):
             with open(self._yaml_file, "w") as f:
                 yaml.dump(self._yaml_data, f)
         return json_data
-    
-def download_database(flexilims_session, root_datatypes=("mouse"), verbose=True):
+
+
+def download_database(flexilims_session, types, verbose=True):
     """Download a FlexiLIMS database as YAML.
 
     Args:
-        username (str): Username for FlexiLIMS
-        password (str): Password for FlexiLIMS
-        project_id (str): Hexadecimal ID of the project
-        root_datatypes (tuple, optional): Tuple of datatypes that can be root (i.e.
-            have no `origin_id`). Defaults to ("mouse").
+        flexilims_session (flexilims.Flexilims): Flexilims session, must have project_id
+            set.
+        types (str or list of str): Entity types to download.
         verbose (bool, optional): Print progress info. Defaults to True.
 
     Returns:
         dict: YAML data
     """
 
-    if isinstance(root_datatypes, str):
-        root_datatypes = [root_datatypes]
+    if isinstance(types, str):
+        types = [types]
 
-    if verbose:
-        print("Downloading root entities")
-    root_entities = []
-    for datatype in root_datatypes:
-        candidates = flexilims_session.get(datatype=datatype)
-        for c in candidates:
-            if "origin_id" in c:
-                if not verbose:
-                    continue
-                print(f"{c['name']} is a `{datatype}` but not root (has `origin_id`)")
-            else:
-                root_entities.append(c)
-
-    if verbose:
-        print(f"Downloading children for {len(root_entities)} entity/ies")
-    yaml_data = {}
-    for i_root, entity in enumerate(root_entities):
-        yaml_data[entity["name"]] = download_children(entity, flexilims_session)
+    all_data = []
+    for datatype in types:
         if verbose:
-            print(f"    ... {i_root + 1} of {len(root_entities)} entity/ies")
+            print(f"Downloading {datatype}")
+        data = flexilims_session.get(datatype=datatype)
+        if verbose:
+            print(f"    ... {len(data)} {datatype} entities")
+        all_data.extend(data)
+
+    if verbose:
+        print("Create YAML data")
+    # make a dataframe to simplify queries
+    df = pd.DataFrame(all_data)
+    root_entities = df[df["origin_id"].isna()]
+    yaml_data = {}
+    for _, root in root_entities.iterrows():
+        yaml_data[root["name"]] = root.to_dict()
+        _add_recursively(yaml_data[root["name"]], root, df)
     return yaml_data
 
 
-def download_children(entity, flexilims_session):
-    """Recursively download children of an entity.
+def _add_recursively(target, entity, df):
+    """Recursively add entities to a dictionary.
 
     Args:
-        entity (dict): FlexiLIMS entity
-        flm_sess (flexilims.Flexilims): Flexilims session, must have project_id set
+        target (dict): Target dictionary
+        entity (pd.Series): FlexiLIMS entity
+        df (pd.DataFrame): DataFrame of entities
 
     Returns:
         dict: Entity with children added
     """
-    assert "children" not in entity, "Entity already has a `children` field"
-    entity["children"] = {}
-    for child in flexilims_session.get_children(entity["id"]):
-        entity["children"][child["name"]] = download_children(child, flexilims_session)
-    return entity
+    assert "children" not in target, "Entity already has a `children` field"
+    children = df[df["origin_id"] == entity["id"]]
+    if children.empty:
+        return target
+    target["children"] = {}
+    for _, child in children.iterrows():
+        target["children"][child["name"]] = child.to_dict()
+        _add_recursively(target["children"][child["name"]], child, df)
+    return target
+
 
 def get_token(username, password=None, base_url="OFFLINE"):
     """Get a token from Flexilims API.
@@ -407,7 +412,7 @@ def get_token(username, password=None, base_url="OFFLINE"):
         username (str): Username for Flexilims
         password (str, optional): Password for Flexilims
         base_url (str, optional): Base URL for Flexilims. Defaults to "OFFLINE".
-    
+
     Returns:
         str: Token
     """
@@ -415,6 +420,21 @@ def get_token(username, password=None, base_url="OFFLINE"):
 
 
 class DummySession(object):
-    """Dummy session object for offline mode."""
+    """Dummy "request" session object for offline mode."""
+
     def __init__(self) -> None:
         self.headers = {"Authorization": "Bearer OFFLINE"}
+
+
+if __name__ == "__main__":
+    import flexilims as flm
+    import flexiznam as flz
+
+    password = flz.config.config_tools.get_password(username="blota", app="flexilims")
+    flexilims_session = flm.Flexilims(
+        "blota", password=password, project_id="624ae21a73245b6d9992a1f5"
+    )
+
+    db = download_database(
+        flexilims_session, ["mouse", "session", "recording", "dataset"]
+    )
