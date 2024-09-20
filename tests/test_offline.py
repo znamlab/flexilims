@@ -3,7 +3,7 @@ from flexiznam.config.config_tools import get_password
 from flexilims import main
 import flexilims.offline as flm
 import pytest
-import yaml
+import json
 import datetime
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
@@ -11,33 +11,35 @@ USERNAME = "blota"
 password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
-YAML_FILE = Path(__file__).parent / "test_data.yaml"
+JSON_FILE = Path(__file__).parent / "test_data.json"
 
 
-@pytest.mark.slow
+# @pytest.mark.slow
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 
     flm_sess = main.Flexilims(USERNAME, password, PROJECT_ID)
-    yaml_data = download_database(flm_sess, root_datatypes=("mouse",), verbose=True)
-    assert isinstance(yaml_data, dict)
-    assert len(yaml_data) == 1
-    assert next(iter(yaml_data)) == "test_mouse"
-    ts = yaml_data["test_mouse"]["children"]["test_session"]
+    json_data = download_database(
+        flm_sess, types=("mouse", "session", "recording", "dataset"), verbose=True
+    )
+    assert isinstance(json_data, dict)
+    assert len(json_data) == 1
+    assert next(iter(json_data)) == "test_mouse"
+    ts = json_data["test_mouse"]["children"]["test_session"]
     assert "test_recording" in ts["children"]
 
-    with open(tmp_path / "test.yaml", "w") as f:
-        yaml.dump(yaml_data, f)
+    with open(tmp_path / "test.json", "w") as f:
+        json.dump(json_data, f)
 
-    reloaded_data = yaml.load(open(tmp_path / "test.yaml"), Loader=yaml.SafeLoader)
-    assert reloaded_data == yaml_data
+    reloaded_data = json.load(open(tmp_path / "test.json"), Loader=json.SafeLoader)
+    assert reloaded_data == json_data
 
     def test_origin(parent):
         for child in parent["children"].values():
             assert child["origin_id"] == parent["id"]
             test_origin(child)
 
-    test_origin(yaml_data["test_mouse"])
+    test_origin(json_data["test_mouse"])
 
 
 def test_token():
@@ -47,27 +49,27 @@ def test_token():
 
 
 def test_update_token(tmp_path):
-    with open(tmp_path / "test.yaml", "w") as f:
-        yaml.dump({}, f)
-    sess = flm.OfflineFlexilims(yaml_file=tmp_path / "test.yaml")
+    with open(tmp_path / "test.json", "w") as f:
+        json.dump({}, f)
+    sess = flm.OfflineFlexilims(json_file=tmp_path / "test.json")
     ori_tok = sess.session.headers["Authorization"]
     # just check that it does not crash. The function does not do anythin
     sess.update_token()
 
 
 def test_session_creation(tmp_path):
-    yaml_file = tmp_path / "test.yaml"
-    with open(yaml_file, "w") as f:
-        yaml.dump({}, f)
-    sess = flm.OfflineFlexilims(yaml_file)
+    json_file = tmp_path / "test.json"
+    with open(json_file, "w") as f:
+        json.dump({}, f)
+    sess = flm.OfflineFlexilims(json_file)
     assert sess.project_id is None
     sess.project_id = PROJECT_ID
-    sess = flm.OfflineFlexilims(yaml_file, project_id=PROJECT_ID)
+    sess = flm.OfflineFlexilims(json_file, project_id=PROJECT_ID)
     assert sess.project_id == PROJECT_ID
 
 
 def test_get_req():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     # basic test
     sess.get(datatype="session", project_id=PROJECT_ID)
     r = sess.get(datatype="recording", project_id=PROJECT_ID)
@@ -113,14 +115,14 @@ def test_get_req():
 
 
 def test_get_children():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     ch = sess.get_children(id=MOUSE_ID)
     assert len(ch) >= 1
     assert "test_session" in [c["name"] for c in ch]
 
 
 def test_get_project_info():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     from flexilims.utils import FlexilimsError
 
     with pytest.raises(FlexilimsError):
@@ -128,16 +130,16 @@ def test_get_project_info():
 
 
 def test__find_entity():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     mouse = sess._find_entity(MOUSE_ID)
     assert mouse["name"] == "test_mouse"
     assert mouse["id"] == MOUSE_ID
-    assert id(mouse) == id(sess._yaml_data["test_mouse"])
+    assert id(mouse) == id(sess._json_data["test_mouse"])
 
 
 def test_update_one():
     # test without project_id
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     original = sess.get(datatype="recording", name="test_recording")[0]
     ori_data = sess._find_entity(original["id"])
 
@@ -235,28 +237,28 @@ def test_update_one():
     assert rep["origin_id"] == orid
 
     # Update the file
-    sess2 = flm.OfflineFlexilims(YAML_FILE, edit_file=True)
+    sess2 = flm.OfflineFlexilims(JSON_FILE, edit_file=True)
     original = sess2.get(datatype="recording", name="test_recording")[0]
     sess2.update_one(id=original["id"], attributes=dict(test_write="written"))
-    with open(YAML_FILE, "r") as f:
+    with open(JSON_FILE, "r") as f:
         txt = f.read()
     assert "test_write: written" in txt
     sess.update_one(id=original["id"], attributes=dict(test_write="original"))
-    with open(YAML_FILE, "r") as f:
+    with open(JSON_FILE, "r") as f:
         txt = f.read()
     assert "test_write: written" in txt
     sess2.update_one(id=original["id"], attributes=dict(test_write="original"))
-    with open(YAML_FILE, "r") as f:
+    with open(JSON_FILE, "r") as f:
         txt = f.read()
     assert "test_write: original" in txt
-    sess2 = flm.OfflineFlexilims(YAML_FILE)
+    sess2 = flm.OfflineFlexilims(JSON_FILE)
     for i, k in enumerate(sess._flat_data()):
         if k["name"] != original["name"]:
             assert sess2._flat_data()[i] == k
 
 
 def test_post_req():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     rep = sess.post(
         datatype="session",
@@ -304,7 +306,7 @@ def test_post_req():
 
 
 def test_post_null():
-    sess = flm.OfflineFlexilims(YAML_FILE)
+    sess = flm.OfflineFlexilims(JSON_FILE)
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     rep = sess.post(
         datatype="session",

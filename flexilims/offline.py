@@ -1,11 +1,11 @@
 """
 Module to run FlexiLIMS in offline mode.
 
-This will use a YAML file as a database instead of the online MongoDB.
+This will use a JSON file as a database instead of the online MongoDB.
 
-Functions to generate the YAML are also included.
+Functions to generate the JSON are also included.
 """
-import yaml
+import json
 import pandas as pd
 from copy import deepcopy
 from warnings import warn
@@ -13,11 +13,11 @@ from flexilims.utils import FlexilimsError, format_results, check_flexilims_vali
 
 
 class OfflineFlexilims(object):
-    def __init__(self, yaml_file, project_id=None, edit_file=False):
+    def __init__(self, json_file, project_id=None, edit_file=False):
         """Create offline Flexilims session.
 
         Args:
-            yaml_file: path to the yaml file
+            json_file: path to the json file
             project_id (optional): hexadecimal id of the project. Not used in offline
                 mode, provided for compatibility with the online version.
             edit_file (optional): if True, the file will be editable. Otherwise, only
@@ -28,33 +28,33 @@ class OfflineFlexilims(object):
         """
         self.username = "Offline"
         self.base_url = "Offline"
-        self._yaml_file = None
-        self._yaml_data = None
+        self._json_file = None
+        self._json_data = None
         self._editable = edit_file
 
         self.session = DummySession()
         self.project_id = project_id
         self.log = []
-        self.yaml_file = yaml_file
+        self.json_file = json_file
 
     @property
-    def yaml_file(self):
-        """Path to YAML file."""
-        return self._yaml_file
+    def json_file(self):
+        """Path to JSON file."""
+        return self._json_file
 
-    @yaml_file.setter
-    def yaml_file(self, value):
-        self._yaml_file = value
-        with open(self._yaml_file) as f:
-            self._yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
-        self.log.append(f"Loaded data from {self._yaml_file}")
+    @json_file.setter
+    def json_file(self, value):
+        self._json_file = value
+        with open(self._json_file) as f:
+            self._json_data = json.load(f)
+        self.log.append(f"Loaded data from {self._json_file}")
 
     def _format_dataframe(self):
         entities = self._flat_dataframe()
         return pd.DataFrame(format_results(entities))
 
     def _flat_data(self, keep_children=False):
-        """Flatten the yaml data to a list of dict."""
+        """Flatten the json data to a list of dict."""
 
         def recur_add_children(data, output_list):
             # data keys are the name which are also in valus["name"]. Ignore them.
@@ -70,7 +70,7 @@ class OfflineFlexilims(object):
             return output_list
 
         data_list = []
-        recur_add_children(self._yaml_data, data_list)
+        recur_add_children(self._json_data, data_list)
         return data_list
 
     def _find_entity(self, id):
@@ -97,7 +97,7 @@ class OfflineFlexilims(object):
                         return found
             return None
 
-        return recur_find(self._yaml_data, id)
+        return recur_find(self._json_data, id)
 
     def get(
         self,
@@ -250,9 +250,9 @@ class OfflineFlexilims(object):
             entity_to_update["attributes"].update(attr2change)
 
         if self._editable:
-            print(f"Updating entity {entity_to_update['name']} in {self._yaml_file}")
-            with open(self._yaml_file, "w") as f:
-                yaml.dump(self._yaml_data, f)
+            print(f"Updating entity {entity_to_update['name']} in {self._json_file}")
+            with open(self._json_file, "w") as f:
+                json.dump(self._json_data, f)
         return entity_to_update
 
     def _recur_clean(self, attr, output, allow_nulls=True, allow_strings=False):
@@ -336,16 +336,16 @@ class OfflineFlexilims(object):
                 parent["children"] = {}
             parent["children"][name] = json_data
         else:
-            self._yaml_data[name] = json_data
+            self._json_data[name] = json_data
         if self._editable:
-            print(f"Adding entity {name} to {self._yaml_file}")
-            with open(self._yaml_file, "w") as f:
-                yaml.dump(self._yaml_data, f)
+            print(f"Adding entity {name} to {self._json_file}")
+            with open(self._json_file, "w") as f:
+                json.dump(self._json_data, f)
         return json_data
 
 
 def download_database(flexilims_session, types, verbose=True):
-    """Download a FlexiLIMS database as YAML.
+    """Download a FlexiLIMS database as JSON.
 
     Args:
         flexilims_session (flexilims.Flexilims): Flexilims session, must have project_id
@@ -354,7 +354,7 @@ def download_database(flexilims_session, types, verbose=True):
         verbose (bool, optional): Print progress info. Defaults to True.
 
     Returns:
-        dict: YAML data
+        dict: JSON data
     """
 
     if isinstance(types, str):
@@ -370,15 +370,15 @@ def download_database(flexilims_session, types, verbose=True):
         all_data.extend(data)
 
     if verbose:
-        print("Create YAML data")
+        print("Create JSON data")
     # make a dataframe to simplify queries
     df = pd.DataFrame(all_data)
     root_entities = df[df["origin_id"].isna()]
-    yaml_data = {}
+    json_data = {}
     for _, root in root_entities.iterrows():
-        yaml_data[root["name"]] = root.to_dict()
-        _add_recursively(yaml_data[root["name"]], root, df)
-    return yaml_data
+        json_data[root["name"]] = root.to_dict()
+        _add_recursively(json_data[root["name"]], root, df)
+    return json_data
 
 
 def _add_recursively(target, entity, df):
