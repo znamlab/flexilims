@@ -13,6 +13,7 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 flm_sess = flm.Flexilims(USERNAME, password)
 
+
 # Delete all entities below test mouse
 def delete_recursive(flm_sess, current_id):
     children = flm_sess.get_children(current_id)
@@ -22,11 +23,13 @@ def delete_recursive(flm_sess, current_id):
     for c in children:
         delete_recursive(flm_sess, c["id"])
         flm_sess.delete(c["id"])
-print('Deleting all entities below test mouse')
+
+
+print("Deleting all entities below test mouse")
 delete_recursive(flm_sess, MOUSE_ID)
 
 # Add back what we need
-print('Adding test entities')
+print("Adding test entities")
 flm_sess = flm.Flexilims(USERNAME, project_id=PROJECT_ID, password=password)
 sess_rep = flm_sess.post(
     datatype="session",

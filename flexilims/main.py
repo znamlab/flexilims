@@ -27,11 +27,10 @@ class Flexilims(object):
 
     def __init__(
         self, username, password, project_id=None, base_url=BASE_URL, token=None
-    ):  
-        
+    ):
         assert isinstance(base_url, str), "base_url must be a string"
         assert base_url.endswith("api/"), "base_url must end with 'api/'"
-        
+
         self.username = username
         self.password = password
         self.base_url = base_url

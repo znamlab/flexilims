@@ -13,6 +13,7 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 YAML_FILE = Path(__file__).parent / "test_data.yaml"
 
+
 @pytest.mark.slow
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
@@ -42,7 +43,7 @@ def test_download_database(tmp_path):
 def test_token():
     tok = flm.get_token(USERNAME, password)
     assert len(tok)
-    assert tok ==  "OFFLINE"
+    assert tok == "OFFLINE"
 
 
 def test_update_token(tmp_path):
@@ -51,7 +52,7 @@ def test_update_token(tmp_path):
     sess = flm.OfflineFlexilims(yaml_file=tmp_path / "test.yaml")
     ori_tok = sess.session.headers["Authorization"]
     # just check that it does not crash. The function does not do anythin
-    sess.update_token()    
+    sess.update_token()
 
 
 def test_session_creation(tmp_path):
@@ -121,8 +122,10 @@ def test_get_children():
 def test_get_project_info():
     sess = flm.OfflineFlexilims(YAML_FILE)
     from flexilims.utils import FlexilimsError
+
     with pytest.raises(FlexilimsError):
         sess.get_project_info()
+
 
 def test__find_entity():
     sess = flm.OfflineFlexilims(YAML_FILE)
@@ -130,6 +133,7 @@ def test__find_entity():
     assert mouse["name"] == "test_mouse"
     assert mouse["id"] == MOUSE_ID
     assert id(mouse) == id(sess._yaml_data["test_mouse"])
+
 
 def test_update_one():
     # test without project_id
@@ -185,8 +189,6 @@ def test_update_one():
     for element, expected_type in zip(get["listofdict"], [dict, list, list, dict]):
         assert isinstance(element, expected_type)
 
-
-
     # when allow null is False, '' are ignored
     rep = sess.update_one(
         id=entity_id,
@@ -235,21 +237,21 @@ def test_update_one():
     # Update the file
     sess2 = flm.OfflineFlexilims(YAML_FILE, edit_file=True)
     original = sess2.get(datatype="recording", name="test_recording")[0]
-    sess2.update_one(id=original['id'], attributes=dict(test_write="written"))
+    sess2.update_one(id=original["id"], attributes=dict(test_write="written"))
     with open(YAML_FILE, "r") as f:
         txt = f.read()
     assert "test_write: written" in txt
-    sess.update_one(id=original['id'], attributes=dict(test_write="original"))
+    sess.update_one(id=original["id"], attributes=dict(test_write="original"))
     with open(YAML_FILE, "r") as f:
         txt = f.read()
     assert "test_write: written" in txt
-    sess2.update_one(id=original['id'], attributes=dict(test_write="original"))
+    sess2.update_one(id=original["id"], attributes=dict(test_write="original"))
     with open(YAML_FILE, "r") as f:
         txt = f.read()
     assert "test_write: original" in txt
     sess2 = flm.OfflineFlexilims(YAML_FILE)
     for i, k in enumerate(sess._flat_data()):
-        if k['name'] != original['name']:
+        if k["name"] != original["name"]:
             assert sess2._flat_data()[i] == k
 
 
