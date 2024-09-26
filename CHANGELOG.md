@@ -1,3 +1,7 @@
+# v0.9
+
+- Add an `offline` mode to emulate database access from a YAML file
+
 # v0.8
 
 Minor:
