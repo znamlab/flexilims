@@ -19,15 +19,26 @@ class AuthenticationError(Exception):
     pass
 
 
-def check_flexilims_validity(attributes):
+def check_flexilims_validity(attributes, warn_case=False):
     """Check that the data can be uploaded to flexilims
 
-    - remove None
-    - lower case attributes
+    - Remove None
+    - Warn if attributes have white characters
+    - Crashing if attributes have special characters
+    - [optionally] Warn if attributes are not lowercase. This is a minor display issue
+        attributes defined in the lab design page will always be displayed with the
+        same case.
+
+    Args:
+        attributes: dictionary to check
+        warn_case: if True, warn if attribute names are not lowercase
+
+    Returns:
+        None
     """
     _replace_nones(attributes)
     for attr_name in attributes:
-        if not attr_name.islower():
+        if not attr_name.islower() and warn_case:
             warnings.warn(
                 "Warning. Attribute names are not case sensitive on the UI."
                 " `%s` might not appear online" % attr_name
