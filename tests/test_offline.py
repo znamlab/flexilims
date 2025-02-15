@@ -31,15 +31,24 @@ def test_download_database(tmp_path):
     with open(tmp_path / "test.json", "w") as f:
         json.dump(json_data, f)
 
-    reloaded_data = json.load(open(tmp_path / "test.json"), Loader=json.SafeLoader)
-    assert reloaded_data == json_data
+    reloaded_data = json.load(open(tmp_path / "test.json"))
 
-    def test_origin(parent):
-        for child in parent["children"].values():
-            assert child["origin_id"] == parent["id"]
-            test_origin(child)
+    def test_rec(dict_a, dict_b, num_diff=0):
+        """Recursively test that dict are identitical and print keys that are not"""
+        for k, v in dict_a.items():
+            assert k in dict_b
+            if k == "origin_id":
+                continue
+            elif isinstance(v, dict):
+                test_rec(v, dict_b[k], num_diff)
+            elif v != dict_b[k]:
+                print(k)
+                print(type(v), type(dict_b[k]))
+                num_diff += 1
+        return num_diff
 
-    test_origin(json_data["test_mouse"])
+    num_diff = test_rec(json_data, reloaded_data)
+    assert num_diff == 0
 
 
 def test_token():

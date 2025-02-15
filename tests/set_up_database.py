@@ -24,7 +24,9 @@ def delete_recursive(flm_sess, current_id):
     print(f"Deleting {len(children)} children of {current_id}")
     for c in children:
         delete_recursive(flm_sess, c["id"])
-        flm_sess.delete(c["id"])
+        rep = flm_sess.delete(c["id"])
+        if rep != "deleted successfully [1, 0]":
+            print(f"Error deleting {c['id']}: {rep}")
 
 
 print("Deleting all entities below test mouse")

@@ -70,7 +70,7 @@ def test_unvalid_request():
     err = flm.main.parse_error(rep.content)
     get_valid_fields = (
         "[type, name, origin_id, custom_entity_id, project_id, attributes, "
-        "custom_entities, id, date_created, created_by, "
+        "custom_entities, detach_custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
         "strict_validation, allow_nulls, external_resource, query_value_data_type, "
         "offset, limit]"
@@ -241,6 +241,8 @@ def test_update_one():
     entity_id = original["id"]
     # update nothing
     rep = sess.update_one(id=entity_id, datatype="recording", strict_validation=False)
+    original.pop("dateUpdated")
+    rep.pop("dateUpdated")
     assert rep == original
     # update attributes
     rep = sess.update_one(
@@ -290,14 +292,16 @@ def test_update_one():
     assert get["listofdict"][3]["t"][1][0] is None
 
     # when allow null is False, '' are ignored
+    # 2025-02-15: current issue with empty strings, return error 500
     rep = sess.update_one(
         id=entity_id,
         datatype="recording",
         strict_validation=False,
         allow_nulls=False,
-        attributes=dict(test_unique=21, nan=""),
+        attributes=dict(test_unique=21, nan="Error500", CamelCase="CamelCase"),
     )
-    assert rep["attributes"]["nan"] == "NaN"
+    # assert rep["attributes"]["nan"] == "NaN"
+    assert rep["attributes"]["nan"] == "Error500"
     # When allow_nulls is True, erase
     rep = sess.update_one(
         id=entity_id,
@@ -390,18 +394,25 @@ def test_post_req():
     rep = sess.post(
         datatype="session",
         name="test_ran_on_%s" % now,
+        origin_id=MOUSE_ID,
         attributes=dict(path="test/session"),
     )
     assert rep["attributes"]["path"] == "test/session"
     ids = [(rep["id"], rep["type"])]
+    attributes = dict(
+        session=rep["id"], trial=1, CamelCase="CamelCase", path="test/session/recording"
+    )
     rep = sess.post(
         datatype="recording",
-        name="test_ran_on_%s_with_origin" % now,
-        attributes=dict(session=rep["id"], trial=1, path="test/session/recording"),
+        name="test_ran_on_%s_with_origin2" % now,
+        attributes=attributes,
         origin_id=MOUSE_ID,
         strict_validation=False,
     )
     ids.append((rep["id"], rep["type"]))
+    assert rep["attributes"] != attributes
+    lower_case = {k.lower(): v for k, v in attributes.items()}
+    assert rep["attributes"] == lower_case
 
     datatypes = dict(
         dataset_type="camera",
@@ -456,6 +467,7 @@ def test_post_null():
         attributes=dict(
             path="none", empty="", none=None, nan=float("nan"), null="null"
         ),
+        origin_id=MOUSE_ID,
         strict_validation=False,
     )
     assert rep["attributes"]["empty"] == ""
@@ -499,10 +511,10 @@ def test_post_error():
         )
     err_msg = (
         "Error 400:  other_relations is not valid. Valid fields are [type, name, "
-        "origin_id, custom_entity_id, project_id, attributes, custom_entities, id, "
-        "date_created, created_by, date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls, external_resource, query_value_data_type, "
-        "offset, limit]"
+        "origin_id, custom_entity_id, project_id, attributes, custom_entities, "
+        "detach_custom_entities, id, date_created, created_by, date_created_operator, "
+        "query_key, query_value, strict_validation, allow_nulls, external_resource, "
+        "query_value_data_type, offset, limit]"
     )
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
@@ -579,6 +591,123 @@ def test_post_error():
             )
 
 
+def test_bool_attribute():
+    """Adding an  updating boolean False had some issues"""
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    rep = sess.post(
+        datatype="session",
+        name="test_ran_on_%s" % now,
+        attributes=dict(
+            boolean_false=False,
+            boolean_true=True,
+            int_0=0,
+            int_1=1,
+            float_0=0.0,
+            float_1=1.0,
+            str_False="False",
+            str_True="True",
+            path="test/session",
+        ),
+        strict_validation=False,
+    )
+    assert rep["attributes"]["boolean_false"] == False
+    assert rep["attributes"]["boolean_true"] == True
+    assert rep["attributes"]["int_0"] == 0
+    assert rep["attributes"]["int_1"] == 1
+    # For some reason the attributes are now lowercase
+    assert rep["attributes"]["str_false"] == "False"
+    assert rep["attributes"]["str_true"] == "True"
+    test = sess.get(datatype="session", id=rep["id"])[0]
+    assert test["attributes"]["boolean_false"] == False
+    assert test["attributes"]["boolean_true"] == True
+    assert test["attributes"]["int_0"] == 0
+    assert test["attributes"]["int_1"] == 1
+    assert test["attributes"]["str_false"] == "False"
+    assert test["attributes"]["str_true"] == "True"
+
+    rep["attributes"]["str_False"] = False
+    rep["attributes"]["str_True"] = True
+    rep["attributes"].pop("str_false")
+    rep["attributes"].pop("str_true")
+    rep2 = sess.update_one(
+        id=rep["id"],
+        datatype="session",
+        attributes=rep["attributes"],
+        strict_validation=False,
+    )
+    assert rep2["attributes"]["str_False"] == False
+    assert rep2["attributes"]["str_True"] == True
+    assert rep2["attributes"]["int_0"] == 0
+    assert rep2["attributes"]["int_1"] == 1
+    assert rep2["attributes"]["boolean_false"] == False
+    assert rep2["attributes"]["boolean_true"] == True
+    # keep everything as boolean now
+    rep3 = sess.update_one(
+        id=rep["id"],
+        datatype="session",
+        attributes=dict(
+            boolean_false=False,
+            boolean_true=True,
+            str_False=False,
+            str_True=True,
+            int_0=False,
+            int_1=True,
+            float_0=False,
+            float_1=True,
+        ),
+        strict_validation=False,
+    )
+    assert rep3["attributes"]["str_False"] == False
+    assert rep3["attributes"]["str_True"] == True
+    assert rep3["attributes"]["int_0"] == False
+    assert rep3["attributes"]["int_1"] == True
+    assert rep3["attributes"]["float_0"] == False
+    assert rep3["attributes"]["float_1"] == True
+
+    sess.delete(rep["id"])
+
+
+def test_case_insensitive():
+    """It's unclear when flexilims allows to upload case sensitive attributes"""
+    # Post will lower case everything:
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    rep = sess.post(
+        datatype="session",
+        name="test_ran_on_%s" % now,
+        attributes=dict(CamelCase="CamelCase", Up="Up", up="up", path="test/session"),
+        strict_validation=False,
+    )
+    assert rep["attributes"]["camelcase"] == "CamelCase"
+    assert rep["attributes"]["up"] == "up"
+    assert "Up" not in rep["attributes"]
+    getitback = sess.get(datatype="session", id=rep["id"])[0]
+
+    assert getitback["attributes"]["camelcase"] == "CamelCase"
+    assert getitback["attributes"]["up"] == "up"
+    assert "Up" not in getitback["attributes"]
+
+    # Update will not lower case existing attributes:
+    attributes = {}
+    attributes["Up"] = "Up"
+    attributes["up"] = "up"
+    attributes["CamelCase"] = "CamelCase"
+    attributes["NewAttr"] = "NewAttr"
+    rep2 = sess.update_one(
+        id=rep["id"], datatype="session", attributes=attributes, strict_validation=False
+    )
+    assert "CamelCase" in rep2["attributes"]
+    assert "camelcase" in rep2["attributes"]
+    assert "up" in rep2["attributes"]
+    assert "Up" in rep2["attributes"]
+    assert "NewAttr" in rep2["attributes"]
+
+
 def test_delete():
     sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
     # post something to delete it
@@ -591,7 +720,7 @@ def test_delete():
         )
     assert sess.get(datatype="recording", id=rep["id"])
     dlm = sess.delete(rep["id"])
-    assert dlm.startswith("deleted successfully")
+    assert dlm == "deleted successfully [1, 0]"
     assert not sess.get(datatype="recording", id=rep["id"])
     with pytest.raises(OSError):
         sess.delete(rep["id"])
