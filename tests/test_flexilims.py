@@ -26,6 +26,10 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
+print("Are we in github actions?")
+print(os.getenv("GITHUB_ACTIONS"))
+print("------------------")
+
 
 @pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
 def test_token():
