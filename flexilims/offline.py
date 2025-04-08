@@ -5,11 +5,14 @@ This will use a JSON file as a database instead of the online MongoDB.
 
 Functions to generate the JSON are also included.
 """
+
 import json
-import pandas as pd
 from copy import deepcopy
 from warnings import warn
-from flexilims.utils import FlexilimsError, format_results, check_flexilims_validity
+
+import pandas as pd
+
+from flexilims.utils import FlexilimsError, check_flexilims_validity, format_results
 
 
 class OfflineFlexilims(object):
@@ -57,7 +60,7 @@ class OfflineFlexilims(object):
         """Flatten the json data to a list of dict."""
 
         def recur_add_children(data, output_list):
-            # data keys are the name which are also in valus["name"]. Ignore them.
+            # data keys are the name which are also in values["name"]. Ignore them.
             for properties in data.values():
                 if keep_children:
                     output_list.append(deepcopy(properties))
@@ -117,19 +120,19 @@ class OfflineFlexilims(object):
         Args:
             datatype: flexilims type of the object(s)
             project_id: hexadecimal id of the project. If None, will use the session
-                        default
+                default
             id: flexilims id of the object.
             name: name of the object
             query_key: attribute to filter the results. Filtering is only possible with
-                       one attribute
+                one attribute
             query_value: valid value for attribute name `query_key`
             origin_id: hexadecimal id of the origin of the object
             created_by: name of the user who created the object
-            date_created: cutoff date. Only elements with date creation greater (default)
-                         or lower than this date will be return (see
-                         date_created_operator), in unix time since epoch.
+            date_created: cutoff date. Only elements with date creation greater
+                (default) or lower than this date will be return (see
+                date_created_operator), in unix time since epoch.
             date_created_operator: 'gt' or 'lt' for greater or lower than (default to
-                                   'gt') both include exact match
+                'gt') both include exact match
 
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
@@ -236,9 +239,7 @@ class OfflineFlexilims(object):
 
         if origin_id is not None:
             entity_to_update["origin_id"] = origin_id
-            warn(
-                "Updating origin_id will break children/parent hierarchy in offline mode"
-            )
+            warn("Updating origin_id will break children/parent hierarchy")
         if name is not None:
             entity_to_update["name"] = name
 
@@ -256,9 +257,9 @@ class OfflineFlexilims(object):
         return entity_to_update
 
     def _recur_clean(self, attr, output, allow_nulls=True, allow_strings=False):
-        unvalid = [[], (), None, {}]
+        invalid = [[], (), None, {}]
         if not allow_strings:
-            unvalid.append("")
+            invalid.append("")
         for k, v in attr.items():
             if isinstance(v, dict) and len(v):
                 output[k] = {}
@@ -267,7 +268,7 @@ class OfflineFlexilims(object):
             if isinstance(v, list):
                 warn("Updating list might not work in offline mode")
 
-            if v in unvalid:
+            if v in invalid:
                 if not allow_nulls:
                     continue
                 v = None
@@ -427,8 +428,9 @@ class DummySession(object):
 
 
 if __name__ == "__main__":
-    import flexilims as flm
     import flexiznam as flz
+
+    import flexilims as flm
 
     password = flz.config.config_tools.get_password(username="blota", app="flexilims")
     flexilims_session = flm.Flexilims(

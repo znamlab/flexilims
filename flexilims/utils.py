@@ -1,7 +1,9 @@
 """Utility functions useful for both online and offline FlexiLIMS."""
-import warnings
+
 import math
 import re
+import warnings
+
 import pandas as pd
 
 SPECIAL_CHARACTERS = re.compile(r'[\',\.@"+=\-!#$%^&*<>?/\|}{~:]')
@@ -81,8 +83,7 @@ def _replace_nones(attributes):
         # we might have an empty dictionary or empty list
         if hasattr(v, "__iter__") and (not isinstance(v, str)) and (not len(v)):
             print(
-                "Warning: %s is an empty structure and will be uploaded as "
-                "`None`" % k
+                "Warning: %s is an empty structure and will be uploaded as `None`" % k
             )
         if v is None:
             print("Setting `%s` to None. Reply will contain an empty list" % k)

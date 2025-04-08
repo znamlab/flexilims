@@ -9,8 +9,8 @@ This package contains a class with generic wrapper to the flexilims get/put/post
 
 ## Valid data types
 
-Data is sent via http requests containing a json-formatted body. All valid json should 
-work, with some caveat for empty structures.  
+Data is sent via http requests containing a json-formatted body. All valid json should
+work, with some caveat for empty structures.
 
 ### Valid type (uploaded as is)
 
@@ -24,15 +24,15 @@ Most basic datatype work as expected. This includes:
 
 ### Converted types
 
-Some types can be uploaded but will converted when uploaded to the database, and come 
+Some types can be uploaded but will converted when uploaded to the database, and come
 back as a different type when using a `get` request.
 
 - A `tuple` becomes a `list`.
 - Empty `dict` are uploaded as `null` .
 - Empty `list` are uploaded as `null`.
 
-**Warning**: the reply from flexilims after a `post` request is sent before uploading the 
-database, empty list and dictionaries are still present as such in this reply. 
+**Warning**: the reply from flexilims after a `post` request is sent before uploading the
+database, empty list and dictionaries are still present as such in this reply.
 
 ### Invalid types
 
@@ -48,7 +48,7 @@ Trying to upload these types will raise an error.
 
 ### Authentication
 
-To connect to flexilims you must be on the Crick network (or vpn to it). Your flexilims username and password can be used to get a token than must then be provided in the headers of any subsequent request. 
+To connect to flexilims you must be on the Crick network (or vpn to it). Your flexilims username and password can be used to get a token than must then be provided in the headers of any subsequent request.
 
 The simplest way to do that is to create a `Flexilims` object that will handle the authentication. It can also have a default project to avoid re-entering the id at every request.
 
@@ -68,9 +68,12 @@ The `session` can then be use to get data of any type:
 results = session.get(datatype='mouse')
 ```
 
-`results` will be a list of dictionnary with each element being one `mouse` in that case. You can specify the `project_id` in the call to get if you didn't set it at session creation (or if you want to access a different project for this request). It is possible to query a selection of the datatype, see docstring for documentation.
+`results` will be a list of dictionary with each element being one `mouse` in that case.
+You can specify the `project_id` in the call to get if you didn't set it at session
+creation (or if you want to access a different project for this request). It is possible
+to query a selection of the datatype, see docstring for documentation.
 
-The database is hierachical, each entity has an origin. The list of children from one entity can get obtained using `get_children`:
+The database is hierarchical, each entity has an origin. The list of children from one entity can get obtained using `get_children`:
 
 ```
 # Get the database entries for all children of one entity
@@ -129,4 +132,4 @@ List existing projects and their attributes
 
 # Testing
 
-Tests require `flexiznam` to get the password. 
+Tests require `flexiznam` to get the password.

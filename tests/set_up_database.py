@@ -4,10 +4,13 @@ data. I usually keep one mouse: `test_mouse`, id 6094f7212597df357fa24a8c
 
 This file just does that.
 """
-from pathlib import Path
+
 import json
-import flexilims as flm
+from pathlib import Path
+
 from flexiznam.config.config_tools import get_password
+
+import flexilims as flm
 
 USERNAME = "blota"
 password = get_password(username=USERNAME, app="flexilims")
