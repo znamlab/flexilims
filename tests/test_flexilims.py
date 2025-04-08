@@ -23,6 +23,7 @@ if get_password is None:
 else:
     password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
+PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
@@ -770,7 +771,42 @@ def test_case_insensitive():
     assert "NewAttr" in rep2["attributes"]  # noqa: E712
 
 
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+def test_multiproject():
+    # Test that entity with same name across project can be retrieved
+    name = "test_multiproject"
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    ent_one = sess.get(datatype="session", name=name)
+    if ent_one:
+        ent_one = ent_one[0]
+    else:
+        ent_one = sess.post(
+            datatype="session",
+            name=name,
+            attributes=dict(path="temp", note="first"),
+            strict_validation=False,
+        )
+
+    ent_two = sess.get(datatype="session", name=name, project_id=PROJECT_ID2)
+    if ent_two:
+        ent_two = ent_two[0]
+    else:
+        sess2 = flm.Flexilims(
+            USERNAME, project_id=PROJECT_ID2, password=password, base_url=TEST_URL
+        )
+        ent_two = sess2.post(
+            datatype="session",
+            name=name,
+            attributes=dict(path="temp", note="second"),
+            strict_validation=False,
+        )
+    assert ent_one["id"] != ent_two["id"]
+
+
 if __name__ == "__main__":
+    test_multiproject()
     test_token()
     test_update_token()
     test_session_creation()
