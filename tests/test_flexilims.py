@@ -26,19 +26,24 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
-
+if IN_GITHUB_ACTIONS:
+    raise IOError(f"GITHUB actions was `{os.getenv('GITHUB_ACTIONS')}`")
 print("Are we in github actions?")
 print(os.getenv("GITHUB_ACTIONS"))
 print("------------------")
 
+not_on_github = pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test works only in Crick network."
+)
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+
+@not_on_github
 def test_token():
     tok = flm.get_token(USERNAME, password, base_url=TEST_URL)
     assert len(tok)
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_update_token():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     ori_tok = sess.session.headers["Authorization"]
@@ -46,7 +51,7 @@ def test_update_token():
     assert sess.session.headers["Authorization"] != ori_tok
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_session_creation():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     assert sess.project_id is None
@@ -60,7 +65,7 @@ def test_session_creation():
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_safe_execute():
     from flexilims.utils import AuthenticationError
 
@@ -79,7 +84,7 @@ def test_safe_execute():
     assert sess.session.headers["Authorization"] != "Bearer invalid_token"
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_unvalid_request():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     sess.update_token()
@@ -100,7 +105,7 @@ def test_unvalid_request():
     assert err["message"] == err_msg + get_valid_fields
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_delete():
     sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
     # post something to delete it
@@ -119,7 +124,7 @@ def test_delete():
         sess.delete(rep["id"])
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     # basic test
@@ -176,7 +181,7 @@ def test_get_req():
     )
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_get_error():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
@@ -200,7 +205,7 @@ def test_get_error():
     assert exc_info.value.args[0] == "Error 400:  please specify type"
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_get_children():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -210,7 +215,7 @@ def test_get_children():
     assert "test_session" in [c["name"] for c in ch]
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_get_children_error():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -223,7 +228,7 @@ def test_get_children_error():
     )
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_get_project_info():
     sess = flm.Flexilims(USERNAME, password=password, base_url=TEST_URL)
     pj = sess.get_project_info()
@@ -232,7 +237,7 @@ def test_get_project_info():
     assert all(["uuid" in p for p in pj])
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_update_one_errors():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -286,7 +291,7 @@ def test_update_one_errors():
     )
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_update_one():
     # test without project_id
     sess = flm.Flexilims(
@@ -397,7 +402,7 @@ def test_update_one():
     assert rep["origin_id"] == orid
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_update_many_req():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -444,7 +449,7 @@ def test_update_many_req():
     assert rep == "updated successfully 0 items of type dataset with is_raw=yes"
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_post_req():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -515,7 +520,7 @@ def test_post_req():
     print("Done")
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_post_null():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -536,7 +541,7 @@ def test_post_null():
     sess.delete(rep["id"])
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_post_error():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(IOError):
@@ -652,7 +657,7 @@ def test_post_error():
             )
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_bool_attribute():
     """Adding an  updating boolean False had some issues"""
     sess = flm.Flexilims(
@@ -732,7 +737,7 @@ def test_bool_attribute():
     sess.delete(rep["id"])
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_case_insensitive():
     """It's unclear when flexilims allows to upload case sensitive attributes"""
     # Post will lower case everything:
@@ -771,7 +776,7 @@ def test_case_insensitive():
     assert "NewAttr" in rep2["attributes"]  # noqa: E712
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@not_on_github
 def test_multiproject():
     # Test that entity with same name across project can be retrieved
     name = "test_multiproject"
