@@ -1,10 +1,13 @@
-from pathlib import Path
-from flexiznam.config.config_tools import get_password
-from flexilims import main
-import flexilims.offline as flm
-import pytest
-import json
 import datetime
+import json
+import os
+from pathlib import Path
+
+import pytest
+from flexiznam.config.config_tools import get_password
+
+import flexilims.offline as flm
+from flexilims import main
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
@@ -12,9 +15,10 @@ password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 JSON_FILE = Path(__file__).parent / "test_data.json"
+IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 
-# @pytest.mark.slow
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 
@@ -61,8 +65,8 @@ def test_update_token(tmp_path):
     with open(tmp_path / "test.json", "w") as f:
         json.dump({}, f)
     sess = flm.OfflineFlexilims(json_file=tmp_path / "test.json")
-    ori_tok = sess.session.headers["Authorization"]
-    # just check that it does not crash. The function does not do anythin
+    sess.session.headers["Authorization"]
+    # just check that it does not crash. The function does not do anything
     sess.update_token()
 
 
@@ -218,8 +222,8 @@ def test_update_one():
         attributes=dict(number="", nan="", path="d"),
     )
 
-    assert rep["attributes"]["nan"] == None
-    assert rep["attributes"]["number"] == None
+    assert rep["attributes"]["nan"] == None  # noqa: E711
+    assert rep["attributes"]["number"] == None  # noqa: E711
     # update name only
     rep = sess.update_one(
         id=entity_id,
@@ -326,7 +330,7 @@ def test_post_null():
         strict_validation=False,
     )
     assert rep["attributes"]["empty"] == ""
-    assert rep["attributes"]["none"] == None
+    assert rep["attributes"]["none"] == None  # noqa: E711
 
 
 if __name__ == "__main__":
