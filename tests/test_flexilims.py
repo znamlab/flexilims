@@ -1,12 +1,13 @@
 """Unit tests for the main flexilims wrappers"""
-import json
 
-import pytest
 import datetime
+
 import numpy as np
+import pytest
+from flexiznam.config.config_tools import get_password
+
 import flexilims as flm
 from flexilims.main import FlexilimsError
-from flexiznam.config.config_tools import get_password
 
 TEST_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 # BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
@@ -79,6 +80,24 @@ def test_unvalid_request():
     assert err["message"] == err_msg + get_valid_fields
 
 
+def test_delete():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
+    # post something to delete it
+    rep = sess.get(datatype="recording", name="rec_to_delete")
+    if rep:
+        rep = rep[0]
+    else:
+        rep = sess.post(
+            datatype="recording", name="rec_to_delete", attributes=dict(path="temp")
+        )
+    assert sess.get(datatype="recording", id=rep["id"])
+    dlm = sess.delete(rep["id"])
+    assert dlm == "deleted successfully [1, 0]"
+    assert not sess.get(datatype="recording", id=rep["id"])
+    with pytest.raises(OSError):
+        sess.delete(rep["id"])
+
+
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     # basic test
@@ -121,8 +140,18 @@ def test_get_req():
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
     # test getting by name with no datatype
-    r = sess.get(project_id=PROJECT_ID, name="test_dataset")
+    with pytest.raises(OSError) as exc_info:
+        sess.get(project_id=PROJECT_ID, name="test_dataset")
+    assert exc_info.value.args[0] == "Error 400:  please specify type"
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    # It works even without the project_id
+    with pytest.raises(OSError) as exc_info:
+        r = sess.get(datatype="dataset", name="test_dataset")
+    assert (
+        exc_info.value.args[0]
+        == "Error 400:  you need to provide project_id to query for dataset"
+    )
 
 
 def test_get_error():
@@ -137,7 +166,7 @@ def test_get_error():
         "a valid hexadecimal value"
     )
     with pytest.raises(OSError) as exc_info:
-        sess.get(datatype="session", project_id=PROJECT_ID, id="unvalid")
+        sess.get(datatype="session", project_id=PROJECT_ID, id="invalid")
     assert (
         exc_info.value.args[0] == "Error 400:  please provide a valid hexadecimal "
         "value for id"
@@ -226,7 +255,7 @@ def test_update_one_errors():
             strict_validation=False,
         )
     assert exc_info.value.args[0] == (
-        "Error 400:  please provide a " "valid hexadecimal value for origin_id"
+        "Error 400:  please provide a valid hexadecimal value for origin_id"
     )
 
 
@@ -498,7 +527,7 @@ def test_post_error():
             datatype="mouse", project_id="InvalidProject", name="temp", attributes={}
         )
     assert exc_info.value.args[0] == (
-        "Error 400:  please provide a valid hexadecimal " "value for project_id"
+        "Error 400:  please provide a valid hexadecimal value for project_id"
     )
     with pytest.raises(OSError) as exc_info:
         sess.post(
@@ -613,20 +642,20 @@ def test_bool_attribute():
         ),
         strict_validation=False,
     )
-    assert rep["attributes"]["boolean_false"] == False
-    assert rep["attributes"]["boolean_true"] == True
-    assert rep["attributes"]["int_0"] == 0
-    assert rep["attributes"]["int_1"] == 1
+    assert rep["attributes"]["boolean_false"] == False  # noqa: E712
+    assert rep["attributes"]["boolean_true"] == True  # noqa: E712
+    assert rep["attributes"]["int_0"] == 0  # noqa: E712
+    assert rep["attributes"]["int_1"] == 1  # noqa: E712
     # For some reason the attributes are now lowercase
-    assert rep["attributes"]["str_false"] == "False"
-    assert rep["attributes"]["str_true"] == "True"
+    assert rep["attributes"]["str_false"] == "False"  # noqa: E712
+    assert rep["attributes"]["str_true"] == "True"  # noqa: E712
     test = sess.get(datatype="session", id=rep["id"])[0]
-    assert test["attributes"]["boolean_false"] == False
-    assert test["attributes"]["boolean_true"] == True
-    assert test["attributes"]["int_0"] == 0
-    assert test["attributes"]["int_1"] == 1
-    assert test["attributes"]["str_false"] == "False"
-    assert test["attributes"]["str_true"] == "True"
+    assert test["attributes"]["boolean_false"] == False  # noqa: E712
+    assert test["attributes"]["boolean_true"] == True  # noqa: E712
+    assert test["attributes"]["int_0"] == 0  # noqa: E712
+    assert test["attributes"]["int_1"] == 1  # noqa: E712
+    assert test["attributes"]["str_false"] == "False"  # noqa: E712
+    assert test["attributes"]["str_true"] == "True"  # noqa: E712
 
     rep["attributes"]["str_False"] = False
     rep["attributes"]["str_True"] = True
@@ -638,12 +667,12 @@ def test_bool_attribute():
         attributes=rep["attributes"],
         strict_validation=False,
     )
-    assert rep2["attributes"]["str_False"] == False
-    assert rep2["attributes"]["str_True"] == True
-    assert rep2["attributes"]["int_0"] == 0
-    assert rep2["attributes"]["int_1"] == 1
-    assert rep2["attributes"]["boolean_false"] == False
-    assert rep2["attributes"]["boolean_true"] == True
+    assert rep2["attributes"]["str_False"] == False  # noqa: E712
+    assert rep2["attributes"]["str_True"] == True  # noqa: E712
+    assert rep2["attributes"]["int_0"] == 0  # noqa: E712
+    assert rep2["attributes"]["int_1"] == 1  # noqa: E712
+    assert rep2["attributes"]["boolean_false"] == False  # noqa: E712
+    assert rep2["attributes"]["boolean_true"] == True  # noqa: E712
     # keep everything as boolean now
     rep3 = sess.update_one(
         id=rep["id"],
@@ -660,12 +689,12 @@ def test_bool_attribute():
         ),
         strict_validation=False,
     )
-    assert rep3["attributes"]["str_False"] == False
-    assert rep3["attributes"]["str_True"] == True
-    assert rep3["attributes"]["int_0"] == False
-    assert rep3["attributes"]["int_1"] == True
-    assert rep3["attributes"]["float_0"] == False
-    assert rep3["attributes"]["float_1"] == True
+    assert rep3["attributes"]["str_False"] == False  # noqa: E712
+    assert rep3["attributes"]["str_True"] == True  # noqa: E712
+    assert rep3["attributes"]["int_0"] == False  # noqa: E712
+    assert rep3["attributes"]["int_1"] == True  # noqa: E712
+    assert rep3["attributes"]["float_0"] == False  # noqa: E712
+    assert rep3["attributes"]["float_1"] == True  # noqa: E712
 
     sess.delete(rep["id"])
 
@@ -683,14 +712,14 @@ def test_case_insensitive():
         attributes=dict(CamelCase="CamelCase", Up="Up", up="up", path="test/session"),
         strict_validation=False,
     )
-    assert rep["attributes"]["camelcase"] == "CamelCase"
-    assert rep["attributes"]["up"] == "up"
-    assert "Up" not in rep["attributes"]
+    assert rep["attributes"]["camelcase"] == "CamelCase"  # noqa: E712
+    assert rep["attributes"]["up"] == "up"  # noqa: E712
+    assert "Up" not in rep["attributes"]  # noqa: E712
     getitback = sess.get(datatype="session", id=rep["id"])[0]
 
-    assert getitback["attributes"]["camelcase"] == "CamelCase"
-    assert getitback["attributes"]["up"] == "up"
-    assert "Up" not in getitback["attributes"]
+    assert getitback["attributes"]["camelcase"] == "CamelCase"  # noqa: E712
+    assert getitback["attributes"]["up"] == "up"  # noqa: E712
+    assert "Up" not in getitback["attributes"]  # noqa: E712
 
     # Update will not lower case existing attributes:
     attributes = {}
@@ -701,29 +730,11 @@ def test_case_insensitive():
     rep2 = sess.update_one(
         id=rep["id"], datatype="session", attributes=attributes, strict_validation=False
     )
-    assert "CamelCase" in rep2["attributes"]
-    assert "camelcase" in rep2["attributes"]
-    assert "up" in rep2["attributes"]
-    assert "Up" in rep2["attributes"]
-    assert "NewAttr" in rep2["attributes"]
-
-
-def test_delete():
-    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
-    # post something to delete it
-    rep = sess.get(datatype="recording", name="rec_to_delete")
-    if rep:
-        rep = rep[0]
-    else:
-        rep = sess.post(
-            datatype="recording", name="rec_to_delete", attributes=dict(path="temp")
-        )
-    assert sess.get(datatype="recording", id=rep["id"])
-    dlm = sess.delete(rep["id"])
-    assert dlm == "deleted successfully [1, 0]"
-    assert not sess.get(datatype="recording", id=rep["id"])
-    with pytest.raises(OSError):
-        sess.delete(rep["id"])
+    assert "CamelCase" in rep2["attributes"]  # noqa: E712
+    assert "camelcase" in rep2["attributes"]  # noqa: E712
+    assert "up" in rep2["attributes"]  # noqa: E712
+    assert "Up" in rep2["attributes"]  # noqa: E712
+    assert "NewAttr" in rep2["attributes"]  # noqa: E712
 
 
 if __name__ == "__main__":
