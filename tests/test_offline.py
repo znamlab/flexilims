@@ -4,14 +4,22 @@ import os
 from pathlib import Path
 
 import pytest
-from flexiznam.config.config_tools import get_password
+
+try:
+    from flexiznam.config.config_tools import get_password
+except ImportError:
+    print("Flexiznam is not installed")
+    get_password = None
 
 import flexilims.offline as flm
 from flexilims import main
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
-password = get_password(username=USERNAME, app="flexilims")
+if get_password is None:
+    password = "NotDefined"
+else:
+    password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 JSON_FILE = Path(__file__).parent / "test_data.json"

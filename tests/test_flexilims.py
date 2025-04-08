@@ -5,7 +5,12 @@ import os
 
 import numpy as np
 import pytest
-from flexiznam.config.config_tools import get_password
+
+try:
+    from flexiznam.config.config_tools import get_password
+except ImportError:
+    print("Flexiznam is not installed. Will crash at steps requiring passwords")
+    get_password = None
 
 import flexilims as flm
 from flexilims.main import FlexilimsError
@@ -13,7 +18,10 @@ from flexilims.main import FlexilimsError
 TEST_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 # BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
-password = get_password(username=USERNAME, app="flexilims")
+if get_password is None:
+    password = "NotDefined"
+else:
+    password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
