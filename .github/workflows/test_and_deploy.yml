@@ -52,10 +52,19 @@ jobs:
 
 
   upload_all:
-    name: Publish build distributions
+    name: Create Release
     needs: [build_sdist_wheels]
     runs-on: ubuntu-latest
     steps:
-    - uses: neuroinformatics-unit/actions/upload_pypi@v2
-      with:
-        secret-pypi-key: ${{ secrets.TWINE_API_KEY }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Create Release
+        id: create_release
+        uses: comnoco/create-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
