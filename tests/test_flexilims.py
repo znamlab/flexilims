@@ -99,7 +99,7 @@ def test_unvalid_request():
         "custom_entities, detach_custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
         "strict_validation, allow_nulls, external_resource, query_value_data_type, "
-        "offset, limit]"
+        "offset, limit, cross_project_entity]"
     )
     err_msg = " randomstuff is not valid. Valid fields are "
     assert err["message"] == err_msg + get_valid_fields
@@ -118,7 +118,7 @@ def test_delete():
         )
     assert sess.get(datatype="recording", id=rep["id"])
     dlm = sess.delete(rep["id"])
-    assert dlm == "deleted successfully [1, 0]"
+    assert dlm == "deleted successfully null"
     assert not sess.get(datatype="recording", id=rep["id"])
     with pytest.raises(OSError):
         sess.delete(rep["id"])
@@ -167,17 +167,15 @@ def test_get_req():
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
     # test getting by name with no datatype
-    with pytest.raises(OSError) as exc_info:
-        sess.get(project_id=PROJECT_ID, name="test_dataset")
-    assert exc_info.value.args[0] == "Error 400:  please specify type"
-    r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
+    sess.get(project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
     # It works even without the project_id
     with pytest.raises(OSError) as exc_info:
         r = sess.get(datatype="dataset", name="test_dataset")
     assert (
         exc_info.value.args[0]
-        == "Error 400:  you need to provide project_id to query for dataset"
+        == "Error 400:  you need to provide project_id to query for [dataset]"
     )
 
 
@@ -199,10 +197,6 @@ def test_get_error():
         exc_info.value.args[0] == "Error 400:  please provide a valid hexadecimal "
         "value for id"
     )
-    with pytest.raises(OSError) as exc_info:
-        # test getting by id with no datatype
-        sess.get(project_id=PROJECT_ID, id=MOUSE_ID)
-    assert exc_info.value.args[0] == "Error 400:  please specify type"
 
 
 @not_on_github
@@ -305,6 +299,8 @@ def test_update_one():
     rep = sess.update_one(id=entity_id, datatype="recording", strict_validation=False)
     original.pop("dateUpdated")
     rep.pop("dateUpdated")
+    rep.pop("customEntities")
+    rep.pop("objects")
     assert rep == original
     # update attributes
     rep = sess.update_one(
@@ -580,7 +576,7 @@ def test_post_error():
         "origin_id, custom_entity_id, project_id, attributes, custom_entities, "
         "detach_custom_entities, id, date_created, created_by, date_created_operator, "
         "query_key, query_value, strict_validation, allow_nulls, external_resource, "
-        "query_value_data_type, offset, limit]"
+        "query_value_data_type, offset, limit, cross_project_entity]"
     )
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:

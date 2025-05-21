@@ -14,6 +14,7 @@ from flexilims.utils import (
 )
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
+# Or test API
 # BASE_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 
 
@@ -83,6 +84,7 @@ class Flexilims(object):
         origin_id=None,
         date_created=None,
         date_created_operator=None,
+        cross_project_entity=False,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -102,6 +104,8 @@ class Flexilims(object):
                 date_created_operator), in unix time since epoch.
             date_created_operator: 'gt' or 'lt' for greater or lower than (default to
                 'gt') both include exact match
+            cross_project_entity (bool): whether to include cross project entity in the
+                results (default to False)
 
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
@@ -114,7 +118,10 @@ class Flexilims(object):
             assert date_created_operator in ("gt", "lt")
         elif date_created is not None:
             date_created_operator = "gt"
-
+        if cross_project_entity:
+            params["cross_project_entity"] = "yes"
+        else:
+            params["cross_project_entity"] = "no"
         # add all non-None arguments in the list
         args = (
             "query_key",
