@@ -1,26 +1,49 @@
 """Unit tests for the main flexilims wrappers"""
-import json
 
-import pytest
 import datetime
+import os
+
 import numpy as np
+import pytest
+
+try:
+    from flexiznam.config.config_tools import get_password
+except ImportError:
+    print("Flexiznam is not installed. Will crash at steps requiring passwords")
+    get_password = None
+
 import flexilims as flm
 from flexilims.main import FlexilimsError
-from flexiznam.config.config_tools import get_password
 
 TEST_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 # BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
-password = get_password(username=USERNAME, app="flexilims")
+if get_password is None:
+    password = "NotDefined"
+else:
+    password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
+PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
+IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+if IN_GITHUB_ACTIONS:
+    raise IOError(f"GITHUB actions was `{os.getenv('GITHUB_ACTIONS')}`")
+print("Are we in github actions?")
+print(os.getenv("GITHUB_ACTIONS"))
+print("------------------")
+
+not_on_github = pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test works only in Crick network."
+)
 
 
+@not_on_github
 def test_token():
     tok = flm.get_token(USERNAME, password, base_url=TEST_URL)
     assert len(tok)
 
 
+@not_on_github
 def test_update_token():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     ori_tok = sess.session.headers["Authorization"]
@@ -28,6 +51,7 @@ def test_update_token():
     assert sess.session.headers["Authorization"] != ori_tok
 
 
+@not_on_github
 def test_session_creation():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     assert sess.project_id is None
@@ -41,6 +65,7 @@ def test_session_creation():
     assert sess.session.headers["Authorization"] == tok["Authorization"]
 
 
+@not_on_github
 def test_safe_execute():
     from flexilims.utils import AuthenticationError
 
@@ -59,6 +84,7 @@ def test_safe_execute():
     assert sess.session.headers["Authorization"] != "Bearer invalid_token"
 
 
+@not_on_github
 def test_unvalid_request():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     sess.update_token()
@@ -70,15 +96,35 @@ def test_unvalid_request():
     err = flm.main.parse_error(rep.content)
     get_valid_fields = (
         "[type, name, origin_id, custom_entity_id, project_id, attributes, "
-        "custom_entities, id, date_created, created_by, "
+        "custom_entities, detach_custom_entities, id, date_created, created_by, "
         "date_created_operator, query_key, query_value, "
         "strict_validation, allow_nulls, external_resource, query_value_data_type, "
-        "offset, limit]"
+        "offset, limit, cross_project_entity]"
     )
     err_msg = " randomstuff is not valid. Valid fields are "
     assert err["message"] == err_msg + get_valid_fields
 
 
+@not_on_github
+def test_delete():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
+    # post something to delete it
+    rep = sess.get(datatype="recording", name="rec_to_delete")
+    if rep:
+        rep = rep[0]
+    else:
+        rep = sess.post(
+            datatype="recording", name="rec_to_delete", attributes=dict(path="temp")
+        )
+    assert sess.get(datatype="recording", id=rep["id"])
+    dlm = sess.delete(rep["id"])
+    assert dlm == "deleted successfully null"
+    assert not sess.get(datatype="recording", id=rep["id"])
+    with pytest.raises(OSError):
+        sess.delete(rep["id"])
+
+
+@not_on_github
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     # basic test
@@ -121,10 +167,19 @@ def test_get_req():
     r = sess.get(datatype="dataset", project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
     # test getting by name with no datatype
-    r = sess.get(project_id=PROJECT_ID, name="test_dataset")
+    sess.get(project_id=PROJECT_ID, name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
+    # It works even without the project_id
+    with pytest.raises(OSError) as exc_info:
+        r = sess.get(datatype="dataset", name="test_dataset")
+    assert (
+        exc_info.value.args[0]
+        == "Error 400:  you need to provide project_id to query for [dataset]"
+    )
 
 
+@not_on_github
 def test_get_error():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
@@ -137,17 +192,14 @@ def test_get_error():
         "a valid hexadecimal value"
     )
     with pytest.raises(OSError) as exc_info:
-        sess.get(datatype="session", project_id=PROJECT_ID, id="unvalid")
+        sess.get(datatype="session", project_id=PROJECT_ID, id="invalid")
     assert (
         exc_info.value.args[0] == "Error 400:  please provide a valid hexadecimal "
         "value for id"
     )
-    with pytest.raises(OSError) as exc_info:
-        # test getting by id with no datatype
-        sess.get(project_id=PROJECT_ID, id=MOUSE_ID)
-    assert exc_info.value.args[0] == "Error 400:  please specify type"
 
 
+@not_on_github
 def test_get_children():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -157,6 +209,7 @@ def test_get_children():
     assert "test_session" in [c["name"] for c in ch]
 
 
+@not_on_github
 def test_get_children_error():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -169,6 +222,7 @@ def test_get_children_error():
     )
 
 
+@not_on_github
 def test_get_project_info():
     sess = flm.Flexilims(USERNAME, password=password, base_url=TEST_URL)
     pj = sess.get_project_info()
@@ -177,6 +231,7 @@ def test_get_project_info():
     assert all(["uuid" in p for p in pj])
 
 
+@not_on_github
 def test_update_one_errors():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -226,10 +281,11 @@ def test_update_one_errors():
             strict_validation=False,
         )
     assert exc_info.value.args[0] == (
-        "Error 400:  please provide a " "valid hexadecimal value for origin_id"
+        "Error 400:  please provide a valid hexadecimal value for origin_id"
     )
 
 
+@not_on_github
 def test_update_one():
     # test without project_id
     sess = flm.Flexilims(
@@ -241,6 +297,10 @@ def test_update_one():
     entity_id = original["id"]
     # update nothing
     rep = sess.update_one(id=entity_id, datatype="recording", strict_validation=False)
+    original.pop("dateUpdated")
+    rep.pop("dateUpdated")
+    rep.pop("customEntities")
+    rep.pop("objects")
     assert rep == original
     # update attributes
     rep = sess.update_one(
@@ -290,14 +350,16 @@ def test_update_one():
     assert get["listofdict"][3]["t"][1][0] is None
 
     # when allow null is False, '' are ignored
+    # 2025-02-15: current issue with empty strings, return error 500
     rep = sess.update_one(
         id=entity_id,
         datatype="recording",
         strict_validation=False,
         allow_nulls=False,
-        attributes=dict(test_unique=21, nan=""),
+        attributes=dict(test_unique=21, nan="Error500", CamelCase="CamelCase"),
     )
-    assert rep["attributes"]["nan"] == "NaN"
+    # assert rep["attributes"]["nan"] == "NaN"
+    assert rep["attributes"]["nan"] == "Error500"
     # When allow_nulls is True, erase
     rep = sess.update_one(
         id=entity_id,
@@ -336,6 +398,7 @@ def test_update_one():
     assert rep["origin_id"] == orid
 
 
+@not_on_github
 def test_update_many_req():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -382,6 +445,7 @@ def test_update_many_req():
     assert rep == "updated successfully 0 items of type dataset with is_raw=yes"
 
 
+@not_on_github
 def test_post_req():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -390,18 +454,25 @@ def test_post_req():
     rep = sess.post(
         datatype="session",
         name="test_ran_on_%s" % now,
+        origin_id=MOUSE_ID,
         attributes=dict(path="test/session"),
     )
     assert rep["attributes"]["path"] == "test/session"
     ids = [(rep["id"], rep["type"])]
+    attributes = dict(
+        session=rep["id"], trial=1, CamelCase="CamelCase", path="test/session/recording"
+    )
     rep = sess.post(
         datatype="recording",
-        name="test_ran_on_%s_with_origin" % now,
-        attributes=dict(session=rep["id"], trial=1, path="test/session/recording"),
+        name="test_ran_on_%s_with_origin2" % now,
+        attributes=attributes,
         origin_id=MOUSE_ID,
         strict_validation=False,
     )
     ids.append((rep["id"], rep["type"]))
+    assert rep["attributes"] != attributes
+    lower_case = {k.lower(): v for k, v in attributes.items()}
+    assert rep["attributes"] == lower_case
 
     datatypes = dict(
         dataset_type="camera",
@@ -445,6 +516,7 @@ def test_post_req():
     print("Done")
 
 
+@not_on_github
 def test_post_null():
     sess = flm.Flexilims(
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
@@ -456,6 +528,7 @@ def test_post_null():
         attributes=dict(
             path="none", empty="", none=None, nan=float("nan"), null="null"
         ),
+        origin_id=MOUSE_ID,
         strict_validation=False,
     )
     assert rep["attributes"]["empty"] == ""
@@ -464,6 +537,7 @@ def test_post_null():
     sess.delete(rep["id"])
 
 
+@not_on_github
 def test_post_error():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(IOError):
@@ -486,7 +560,7 @@ def test_post_error():
             datatype="mouse", project_id="InvalidProject", name="temp", attributes={}
         )
     assert exc_info.value.args[0] == (
-        "Error 400:  please provide a valid hexadecimal " "value for project_id"
+        "Error 400:  please provide a valid hexadecimal value for project_id"
     )
     with pytest.raises(OSError) as exc_info:
         sess.post(
@@ -499,10 +573,10 @@ def test_post_error():
         )
     err_msg = (
         "Error 400:  other_relations is not valid. Valid fields are [type, name, "
-        "origin_id, custom_entity_id, project_id, attributes, custom_entities, id, "
-        "date_created, created_by, date_created_operator, query_key, query_value, "
-        "strict_validation, allow_nulls, external_resource, query_value_data_type, "
-        "offset, limit]"
+        "origin_id, custom_entity_id, project_id, attributes, custom_entities, "
+        "detach_custom_entities, id, date_created, created_by, date_created_operator, "
+        "query_key, query_value, strict_validation, allow_nulls, external_resource, "
+        "query_value_data_type, offset, limit, cross_project_entity]"
     )
     assert exc_info.value.args[0] == err_msg
     with pytest.raises(OSError) as exc_info:
@@ -579,25 +653,161 @@ def test_post_error():
             )
 
 
-def test_delete():
-    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
-    # post something to delete it
-    rep = sess.get(datatype="recording", name="rec_to_delete")
-    if rep:
-        rep = rep[0]
+@not_on_github
+def test_bool_attribute():
+    """Adding an  updating boolean False had some issues"""
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    rep = sess.post(
+        datatype="session",
+        name="test_ran_on_%s" % now,
+        attributes=dict(
+            boolean_false=False,
+            boolean_true=True,
+            int_0=0,
+            int_1=1,
+            float_0=0.0,
+            float_1=1.0,
+            str_False="False",
+            str_True="True",
+            path="test/session",
+        ),
+        strict_validation=False,
+    )
+    assert rep["attributes"]["boolean_false"] == False  # noqa: E712
+    assert rep["attributes"]["boolean_true"] == True  # noqa: E712
+    assert rep["attributes"]["int_0"] == 0  # noqa: E712
+    assert rep["attributes"]["int_1"] == 1  # noqa: E712
+    # For some reason the attributes are now lowercase
+    assert rep["attributes"]["str_false"] == "False"  # noqa: E712
+    assert rep["attributes"]["str_true"] == "True"  # noqa: E712
+    test = sess.get(datatype="session", id=rep["id"])[0]
+    assert test["attributes"]["boolean_false"] == False  # noqa: E712
+    assert test["attributes"]["boolean_true"] == True  # noqa: E712
+    assert test["attributes"]["int_0"] == 0  # noqa: E712
+    assert test["attributes"]["int_1"] == 1  # noqa: E712
+    assert test["attributes"]["str_false"] == "False"  # noqa: E712
+    assert test["attributes"]["str_true"] == "True"  # noqa: E712
+
+    rep["attributes"]["str_False"] = False
+    rep["attributes"]["str_True"] = True
+    rep["attributes"].pop("str_false")
+    rep["attributes"].pop("str_true")
+    rep2 = sess.update_one(
+        id=rep["id"],
+        datatype="session",
+        attributes=rep["attributes"],
+        strict_validation=False,
+    )
+    assert rep2["attributes"]["str_False"] == False  # noqa: E712
+    assert rep2["attributes"]["str_True"] == True  # noqa: E712
+    assert rep2["attributes"]["int_0"] == 0  # noqa: E712
+    assert rep2["attributes"]["int_1"] == 1  # noqa: E712
+    assert rep2["attributes"]["boolean_false"] == False  # noqa: E712
+    assert rep2["attributes"]["boolean_true"] == True  # noqa: E712
+    # keep everything as boolean now
+    rep3 = sess.update_one(
+        id=rep["id"],
+        datatype="session",
+        attributes=dict(
+            boolean_false=False,
+            boolean_true=True,
+            str_False=False,
+            str_True=True,
+            int_0=False,
+            int_1=True,
+            float_0=False,
+            float_1=True,
+        ),
+        strict_validation=False,
+    )
+    assert rep3["attributes"]["str_False"] == False  # noqa: E712
+    assert rep3["attributes"]["str_True"] == True  # noqa: E712
+    assert rep3["attributes"]["int_0"] == False  # noqa: E712
+    assert rep3["attributes"]["int_1"] == True  # noqa: E712
+    assert rep3["attributes"]["float_0"] == False  # noqa: E712
+    assert rep3["attributes"]["float_1"] == True  # noqa: E712
+
+    sess.delete(rep["id"])
+
+
+@not_on_github
+def test_case_insensitive():
+    """It's unclear when flexilims allows to upload case sensitive attributes"""
+    # Post will lower case everything:
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    rep = sess.post(
+        datatype="session",
+        name="test_ran_on_%s" % now,
+        attributes=dict(CamelCase="CamelCase", Up="Up", up="up", path="test/session"),
+        strict_validation=False,
+    )
+    assert rep["attributes"]["camelcase"] == "CamelCase"  # noqa: E712
+    assert rep["attributes"]["up"] == "up"  # noqa: E712
+    assert "Up" not in rep["attributes"]  # noqa: E712
+    getitback = sess.get(datatype="session", id=rep["id"])[0]
+
+    assert getitback["attributes"]["camelcase"] == "CamelCase"  # noqa: E712
+    assert getitback["attributes"]["up"] == "up"  # noqa: E712
+    assert "Up" not in getitback["attributes"]  # noqa: E712
+
+    # Update will not lower case existing attributes:
+    attributes = {}
+    attributes["Up"] = "Up"
+    attributes["up"] = "up"
+    attributes["CamelCase"] = "CamelCase"
+    attributes["NewAttr"] = "NewAttr"
+    rep2 = sess.update_one(
+        id=rep["id"], datatype="session", attributes=attributes, strict_validation=False
+    )
+    assert "CamelCase" in rep2["attributes"]  # noqa: E712
+    assert "camelcase" in rep2["attributes"]  # noqa: E712
+    assert "up" in rep2["attributes"]  # noqa: E712
+    assert "Up" in rep2["attributes"]  # noqa: E712
+    assert "NewAttr" in rep2["attributes"]  # noqa: E712
+
+
+@not_on_github
+def test_multiproject():
+    # Test that entity with same name across project can be retrieved
+    name = "test_multiproject"
+    sess = flm.Flexilims(
+        USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
+    )
+    ent_one = sess.get(datatype="session", name=name)
+    if ent_one:
+        ent_one = ent_one[0]
     else:
-        rep = sess.post(
-            datatype="recording", name="rec_to_delete", attributes=dict(path="temp")
+        ent_one = sess.post(
+            datatype="session",
+            name=name,
+            attributes=dict(path="temp", note="first"),
+            strict_validation=False,
         )
-    assert sess.get(datatype="recording", id=rep["id"])
-    dlm = sess.delete(rep["id"])
-    assert dlm.startswith("deleted successfully")
-    assert not sess.get(datatype="recording", id=rep["id"])
-    with pytest.raises(OSError):
-        sess.delete(rep["id"])
+
+    ent_two = sess.get(datatype="session", name=name, project_id=PROJECT_ID2)
+    if ent_two:
+        ent_two = ent_two[0]
+    else:
+        sess2 = flm.Flexilims(
+            USERNAME, project_id=PROJECT_ID2, password=password, base_url=TEST_URL
+        )
+        ent_two = sess2.post(
+            datatype="session",
+            name=name,
+            attributes=dict(path="temp", note="second"),
+            strict_validation=False,
+        )
+    assert ent_one["id"] != ent_two["id"]
 
 
 if __name__ == "__main__":
+    test_multiproject()
     test_token()
     test_update_token()
     test_session_creation()

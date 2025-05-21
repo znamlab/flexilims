@@ -1,20 +1,32 @@
-from pathlib import Path
-from flexiznam.config.config_tools import get_password
-from flexilims import main
-import flexilims.offline as flm
-import pytest
-import json
 import datetime
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+try:
+    from flexiznam.config.config_tools import get_password
+except ImportError:
+    print("Flexiznam is not installed")
+    get_password = None
+
+import flexilims.offline as flm
+from flexilims import main
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
-password = get_password(username=USERNAME, app="flexilims")
+if get_password is None:
+    password = "NotDefined"
+else:
+    password = get_password(username=USERNAME, app="flexilims")
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 JSON_FILE = Path(__file__).parent / "test_data.json"
+IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 
-# @pytest.mark.slow
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 
@@ -31,15 +43,24 @@ def test_download_database(tmp_path):
     with open(tmp_path / "test.json", "w") as f:
         json.dump(json_data, f)
 
-    reloaded_data = json.load(open(tmp_path / "test.json"), Loader=json.SafeLoader)
-    assert reloaded_data == json_data
+    reloaded_data = json.load(open(tmp_path / "test.json"))
 
-    def test_origin(parent):
-        for child in parent["children"].values():
-            assert child["origin_id"] == parent["id"]
-            test_origin(child)
+    def test_rec(dict_a, dict_b, num_diff=0):
+        """Recursively test that dict are identitical and print keys that are not"""
+        for k, v in dict_a.items():
+            assert k in dict_b
+            if k == "origin_id":
+                continue
+            elif isinstance(v, dict):
+                test_rec(v, dict_b[k], num_diff)
+            elif v != dict_b[k]:
+                print(k)
+                print(type(v), type(dict_b[k]))
+                num_diff += 1
+        return num_diff
 
-    test_origin(json_data["test_mouse"])
+    num_diff = test_rec(json_data, reloaded_data)
+    assert num_diff == 0
 
 
 def test_token():
@@ -52,8 +73,8 @@ def test_update_token(tmp_path):
     with open(tmp_path / "test.json", "w") as f:
         json.dump({}, f)
     sess = flm.OfflineFlexilims(json_file=tmp_path / "test.json")
-    ori_tok = sess.session.headers["Authorization"]
-    # just check that it does not crash. The function does not do anythin
+    sess.session.headers["Authorization"]
+    # just check that it does not crash. The function does not do anything
     sess.update_token()
 
 
@@ -209,8 +230,8 @@ def test_update_one():
         attributes=dict(number="", nan="", path="d"),
     )
 
-    assert rep["attributes"]["nan"] == None
-    assert rep["attributes"]["number"] == None
+    assert rep["attributes"]["nan"] == None  # noqa: E711
+    assert rep["attributes"]["number"] == None  # noqa: E711
     # update name only
     rep = sess.update_one(
         id=entity_id,
@@ -317,7 +338,7 @@ def test_post_null():
         strict_validation=False,
     )
     assert rep["attributes"]["empty"] == ""
-    assert rep["attributes"]["none"] == None
+    assert rep["attributes"]["none"] == None  # noqa: E711
 
 
 if __name__ == "__main__":

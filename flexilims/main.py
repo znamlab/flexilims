@@ -1,17 +1,21 @@
 """Generic function to interface with flexilims"""
-import time
+
 import re
-import requests
+import time
 import warnings
+
+import requests
 from requests.auth import HTTPBasicAuth
+
 from flexilims.utils import (
-    FlexilimsError,
     AuthenticationError,
+    FlexilimsError,
     check_flexilims_validity,
 )
-import json
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
+# Or test API
+# BASE_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 
 
 class Flexilims(object):
@@ -80,25 +84,28 @@ class Flexilims(object):
         origin_id=None,
         date_created=None,
         date_created_operator=None,
+        cross_project_entity=False,
     ):
         """Get all the entries of type datatype in the current project
 
         Args:
             datatype: flexilims type of the object(s)
             project_id: hexadecimal id of the project. If None, will use the session
-                        default
+                default
             id: flexilims id of the object.
             name: name of the object
             query_key: attribute to filter the results. Filtering is only possible with
-                       one attribute
+                one attribute
             query_value: valid value for attribute name `query_key`
             origin_id: hexadecimal id of the origin of the object
             created_by: name of the user who created the object
-            date_created: cutoff date. Only elements with date creation greater (default)
-                         or lower than this date will be return (see
-                         date_created_operator), in unix time since epoch.
+            date_created: cutoff date. Only elements with date creation greater
+                (default) or lower than this date will be return (see
+                date_created_operator), in unix time since epoch.
             date_created_operator: 'gt' or 'lt' for greater or lower than (default to
-                                   'gt') both include exact match
+                'gt') both include exact match
+            cross_project_entity (bool): whether to include cross project entity in the
+                results (default to False)
 
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
@@ -111,7 +118,10 @@ class Flexilims(object):
             assert date_created_operator in ("gt", "lt")
         elif date_created is not None:
             date_created_operator = "gt"
-
+        if cross_project_entity:
+            params["cross_project_entity"] = "yes"
+        else:
+            params["cross_project_entity"] = "no"
         # add all non-None arguments in the list
         args = (
             "query_key",
@@ -322,7 +332,7 @@ class Flexilims(object):
         try:
             rep = function(*args, **kwargs)
             self.handle_error(rep)
-        except AuthenticationError as e:
+        except AuthenticationError:
             # try to update the token and retry
             self.update_token()
             rep = function(*args, **kwargs)
@@ -384,8 +394,7 @@ class Flexilims(object):
                 )
             if len(value) != 24:
                 raise FlexilimsError(
-                    "project_id must be a 24 characters long project id."
-                    " Got %s" % value
+                    "project_id must be a 24 characters long project id. Got %s" % value
                 )
         self._project_id = value
 
@@ -412,7 +421,7 @@ def get_token(username, password, base_url=BASE_URL):
         )
     except requests.exceptions.ConnectionError:
         raise requests.exceptions.ConnectionError(
-            "Cannot connect to flexilims. " "Are you on the Crick network?"
+            "Cannot connect to flexilims. Are you on the Crick network?"
         )
     if rep.ok:
         token = rep.text

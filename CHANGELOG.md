@@ -1,3 +1,12 @@
+# v1.0
+
+Major:
+- Add `cross_project_entity` (default to False) in get entry point. Required for
+requesting entity by name or id without specifying their type.
+
+Minor:
+- Remove case warning when uploading attributes
+
 # v0.9
 
 - Add an `offline` mode to emulate database access from a YAML file
@@ -30,7 +39,7 @@ Minor:
 
 # v0.4
 
-- Crash if uploading attribute with special characters in names and print warning when 
+- Crash if uploading attribute with special characters in names and print warning when
   uploading a non-lowercase attribute
 
 # v0.3
