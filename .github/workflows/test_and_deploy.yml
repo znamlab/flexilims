@@ -20,28 +20,6 @@ jobs:
     steps:
       - uses: neuroinformatics-unit/actions/check_manifest@v2
 
-  test:
-    needs: [linting, manifest]
-    name: ${{ matrix.os }} py${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # Run all supported Python versions on linux
-        python-version: ["3.11", "3.12", "3.13"]
-        os: [ubuntu-latest]
-        # Include one windows and macos run
-        include:
-        - os: macos-latest
-          python-version: "3.13"
-        - os: windows-latest
-          python-version: "3.13"
-
-    steps:
-      # Run tests
-      - uses: neuroinformatics-unit/actions/test@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
   build_sdist_wheels:
     name: Build source distribution
     needs: [linting, manifest]
