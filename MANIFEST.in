@@ -1,6 +1,7 @@
 include LICENSE
 include README.md
 include CHANGELOG.md
+include release_notes.md
 exclude .pre-commit-config.yaml
 
 recursive-exclude * __pycache__
