@@ -173,12 +173,13 @@ def test_get_req():
     # It works even without the project_id
     r = sess.get(datatype="dataset", name="test_dataset")
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
+    r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
     # It works even without the project_id
     with pytest.raises(OSError) as exc_info:
         r = sess.get(datatype="dataset", name="test_dataset")
     assert (
         exc_info.value.args[0]
-        == "Error 400:  you need to provide project_id to query for dataset"
+        == "Error 400:  you need to provide project_id to query for [dataset]"
     )
 
 
