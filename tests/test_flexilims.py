@@ -171,12 +171,8 @@ def test_get_req():
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
     r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
     # It works even without the project_id
-    with pytest.raises(OSError) as exc_info:
-        r = sess.get(datatype="dataset", name="test_dataset")
-    assert (
-        exc_info.value.args[0]
-        == "Error 400:  you need to provide project_id to query for [dataset]"
-    )
+    r = sess.get(datatype="dataset", name="test_dataset")
+    assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
 
 
 @not_on_github
@@ -184,7 +180,10 @@ def test_get_error():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype="InvalidType", project_id=PROJECT_ID)
-    assert exc_info.value.args[0] == "Error 400:  type InvalidType is not defined"
+    assert (
+        exc_info.value.args[0]
+        == "Error 400:  type &#39;InvalidType&#39; is not defined"
+    )
     with pytest.raises(OSError) as exc_info:
         sess.get(datatype="session", project_id="NotAProject")
     assert (
@@ -299,7 +298,6 @@ def test_update_one():
     rep = sess.update_one(id=entity_id, datatype="recording", strict_validation=False)
     original.pop("dateUpdated")
     rep.pop("dateUpdated")
-    rep.pop("customEntities")
     rep.pop("objects")
     assert rep == original
     # update attributes
