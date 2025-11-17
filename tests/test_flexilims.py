@@ -312,14 +312,20 @@ def test_update_one():
         id=entity_id,
         datatype="recording",
         strict_validation=False,
-        allow_nulls=False,
+        allow_nulls=True,
         attributes=dict(
-            nested=dict(level="new_test"), list=["a", 1], number=12, nan="NaN", empty=""
+            nested=dict(level="new_test", empty=""),
+            list=["a", 1],
+            number=12,
+            nan="NaN",
+            empty_attr="",
         ),
     )
     assert isinstance(rep["attributes"]["nested"], dict)
     assert rep["attributes"]["nested"]["level"] == "new_test"
     assert rep["attributes"]["nan"] == "NaN"
+    assert rep["attributes"]["nested"]["empty"] == ""
+    assert rep["attributes"]["empty_attr"] is None
     assert len(rep["attributes"]["list"]) == 2
     assert isinstance(rep["attributes"]["number"], int)
     # test a weird nesting with empty structures and nones
@@ -367,8 +373,8 @@ def test_update_one():
         attributes=dict(number="", nan="", path="d"),
     )
 
-    assert rep["attributes"]["nan"] == ""
-    assert rep["attributes"]["number"] == ""
+    assert rep["attributes"]["nan"] is None
+    assert rep["attributes"]["number"] is None
     # update name only
     rep = sess.update_one(
         id=entity_id,
@@ -394,6 +400,39 @@ def test_update_one():
     )
 
     assert rep["origin_id"] == orid
+    datatypes = dict(
+        dataset_type="camera",
+        path="random",
+        int=12,
+        float=12.1,
+        list=[0, 1],
+        tuple=(0, 1),
+        dict=dict(o=2),
+        bool_t=True,
+        bool_f=False,
+        empty_dict=dict(),
+        empty_list=[],
+        empty_str="",
+    )
+    rep = rep = sess.update_one(
+        id=entity_id,
+        datatype="recording",
+        strict_validation=False,
+        allow_nulls=True,
+        attributes=datatypes,
+    )
+
+    gt = sess.get(datatype="recording", id=entity_id)[0]["attributes"]
+    transformed = dict(tuple=[], empty_dict=None, empty_list=None)
+    transformed["empty_str"] = None  # empty string are converted to None, unlike POST
+    for k, v in datatypes.items():
+        if k in transformed:
+            expected = type(transformed[k])
+        else:
+            if k.startswith("bool_"):
+                print(k, v, type(v))
+            expected = type(datatypes[k])
+        assert isinstance(gt[k], expected)
 
 
 @not_on_github
@@ -480,7 +519,8 @@ def test_post_req():
         list=[0, 1],
         tuple=(0, 1),
         dict=dict(o=2),
-        bool=False,
+        bool_t=True,
+        bool_f=False,
         empty_dict=dict(),
         empty_list=[],
         empty_str="",
@@ -805,6 +845,7 @@ def test_multiproject():
 
 
 if __name__ == "__main__":
+    test_update_one()
     test_multiproject()
     test_token()
     test_update_token()
@@ -817,7 +858,6 @@ if __name__ == "__main__":
     test_get_children_error()
     test_get_project_info()
     test_update_one_errors()
-    test_update_one()
     test_update_many_req()
     test_post_req()
     test_post_null()
