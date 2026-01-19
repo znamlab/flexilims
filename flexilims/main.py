@@ -84,6 +84,7 @@ class Flexilims(object):
         date_created=None,
         date_created_operator=None,
         cross_project_entity=False,
+        limit=None,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -105,7 +106,7 @@ class Flexilims(object):
                 'gt') both include exact match
             cross_project_entity (bool): whether to include cross project entity in the
                 results (default to False)
-
+            limit (int): maximum number of results to return (default to None)
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
@@ -131,6 +132,7 @@ class Flexilims(object):
             "date_created",
             "date_created_operator",
             "created_by",
+            "limit",
         )
         for arg_name in args:
             if locals()[arg_name] is not None:

@@ -1,3 +1,8 @@
+# v1.1
+
+Minor:
+- Add `limit` parameter to `get` method
+
 For last release changes, see `release_notes.md`
 
 # v0.9
