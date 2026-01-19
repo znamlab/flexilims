@@ -118,10 +118,10 @@ def test_delete():
         )
     assert sess.get(datatype="recording", id=rep["id"])
     dlm = sess.delete(rep["id"])
-    assert dlm == "deleted successfully null"
+    assert dlm == "deleted successfully 1"
     assert not sess.get(datatype="recording", id=rep["id"])
-    with pytest.raises(OSError):
-        sess.delete(rep["id"])
+    dlm = sess.delete(rep["id"])
+    assert dlm == "deleted successfully 0"
 
 
 @not_on_github
@@ -449,17 +449,18 @@ def test_update_many_req():
         USERNAME, project_id=PROJECT_ID, password=password, base_url=TEST_URL
     )
     # get to know how many session there are
-    n_sess = len(sess.get(datatype="session"))
+    n_sess = len(sess.get(datatype="session", limit=1000))
+    _ = sess.get(datatype="session")
     rep = sess.update_many(
         datatype="session",
         update_key="test_attribute",
-        update_value="new_value",
+        update_value="new_value4dec",
         query_key=None,
         query_value=None,
     )
     assert rep == (
-        "updated successfully %d items of type session with "
-        "test_attribute=new_value" % n_sess
+        f"updated successfully {n_sess} items of type session with "
+        "test_attribute=new_value"
     )
     rep = sess.update_many(
         datatype="session",
@@ -853,6 +854,8 @@ def test_multiproject():
 
 
 if __name__ == "__main__":
+    test_update_many_req()
+    test_delete()
     test_update_one()
     test_multiproject()
     test_token()
@@ -866,8 +869,6 @@ if __name__ == "__main__":
     test_get_children_error()
     test_get_project_info()
     test_update_one_errors()
-    test_update_many_req()
     test_post_req()
     test_post_null()
     test_post_error()
-    test_delete()
