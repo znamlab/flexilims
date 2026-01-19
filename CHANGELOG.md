@@ -1,3 +1,8 @@
+# v1.1
+
+Minor:
+- Add `limit` parameter to `get` method
+
 # v1.0
 
 Minor:
