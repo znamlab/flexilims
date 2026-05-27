@@ -341,7 +341,81 @@ def test_post_null():
     assert rep["attributes"]["none"] == None  # noqa: E711
 
 
+def test_download_database_pagination():
+    from flexilims.offline import download_database
+
+    class MockFlexilimsSession:
+        def __init__(self):
+            # Create a list of 2500 mock datasets, with incremental dateCreated
+            self.mock_data = []
+            for i in range(2500):
+                self.mock_data.append(
+                    {
+                        "id": f"ds_{i}",
+                        "type": "dataset",
+                        "name": f"dataset_{i}",
+                        "dateCreated": 1000000 + i,
+                        "origin_id": "rec_1",
+                    }
+                )
+            # Also add a parent mouse, session, recording
+            self.mock_data.append(
+                {
+                    "id": "mouse_1",
+                    "type": "mouse",
+                    "name": "test_mouse",
+                    "origin_id": None,
+                }
+            )
+            self.mock_data.append(
+                {
+                    "id": "sess_1",
+                    "type": "session",
+                    "name": "test_session",
+                    "origin_id": "mouse_1",
+                }
+            )
+            self.mock_data.append(
+                {
+                    "id": "rec_1",
+                    "type": "recording",
+                    "name": "test_recording",
+                    "origin_id": "sess_1",
+                }
+            )
+
+        def get(self, datatype, date_created=None, date_created_operator="gt"):
+            # Filter the mock data by datatype
+            items = [item for item in self.mock_data if item["type"] == datatype]
+            if date_created is not None:
+                if date_created_operator == "gt":
+                    items = [
+                        item for item in items if item["dateCreated"] > date_created
+                    ]
+                elif date_created_operator == "lt":
+                    items = [
+                        item for item in items if item["dateCreated"] < date_created
+                    ]
+            # Enforce the server pagination limit of 1000
+            return items[:1000]
+
+    mock_sess = MockFlexilimsSession()
+    json_data = download_database(
+        mock_sess, types=("mouse", "session", "recording", "dataset"), verbose=False
+    )
+
+    # Check that test_mouse was created at root
+    assert "test_mouse" in json_data
+    # Check that datasets were recursively added down the hierarchy
+    sess_node = json_data["test_mouse"]["children"]["test_session"]
+    rec_node = sess_node["children"]["test_recording"]
+    assert "children" in rec_node
+    # There should be exactly 2500 children datasets!
+    assert len(rec_node["children"]) == 2500
+
+
 if __name__ == "__main__":
+    test_download_database_pagination()
     test_post_null()
     test_update_one()
     test_post_req()

@@ -365,10 +365,39 @@ def download_database(flexilims_session, types, verbose=True):
     for datatype in types:
         if verbose:
             print(f"Downloading {datatype}")
-        data = flexilims_session.get(datatype=datatype)
+
+        datatype_data = []
+        last_date = None
+        while True:
+            if last_date is None:
+                data = flexilims_session.get(datatype=datatype)
+            else:
+                data = flexilims_session.get(
+                    datatype=datatype,
+                    date_created=last_date,
+                    date_created_operator="gt",
+                )
+            if not data:
+                break
+            datatype_data.extend(data)
+            if len(data) < 1000:
+                break
+            dates = [
+                item.get("dateCreated")
+                for item in data
+                if item.get("dateCreated") is not None
+            ]
+            if not dates:
+                break
+            max_date = max(dates)
+            if last_date is not None and max_date <= last_date:
+                last_date = max_date + 1
+            else:
+                last_date = max_date
+
         if verbose:
-            print(f"    ... {len(data)} {datatype} entities")
-        all_data.extend(data)
+            print(f"    ... {len(datatype_data)} {datatype} entities")
+        all_data.extend(datatype_data)
 
     if verbose:
         print("Create JSON data")

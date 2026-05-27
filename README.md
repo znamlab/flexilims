@@ -1,6 +1,7 @@
 # Flexilims repository
 
-Flexilims is a laboratory database software written and maintained by the database team of the Crick. Flexilims web interface can be accessed at https://flexylims.thecrick.org/flexilims/. Mike Gavrielides wrote an API. The documentation is here https://flexylims.thecrick.org/flexilims/api/docs.
+Flexilims is a laboratory database software written and maintained by the database team
+of the Crick. Flexilims web interface can be accessed at https://flexylims.thecrick.org/flexilims/. Mike Gavrielides wrote an API. The documentation is here https://flexylims.thecrick.org/flexilims/api/docs.
 This repository is defining python wrappers to use the API.
 
 # flexilims
@@ -116,6 +117,58 @@ That's obviously dangerous as you rarely want to have the same `new_value` for e
 ```
 rep = session.update_many(datatype='session', query_key='test_uniq', query_value='unique',
                           update_key='test_uniq', update_value='unique')
+```
+
+### Offline Mode
+
+It is possible to use flexilims without a connection to the database. To do so, you first need to download a copy of the database locally.
+
+#### Downloading the database
+
+You can download the database (or a subset of it) to a json file using `download_database`.
+
+```python
+import json
+import flexilims.main as flm
+from flexilims.offline import download_database
+
+# Credentials are required to download the database
+session = flm.Flexilims(
+    username='MyUserName', password='Password', project_id='hexcode000000000')
+
+# Download the database, here only mouse and session datatypes
+data = download_database(session, types=['mouse', 'sample', 'recording', 'session',
+'dataset'])
+
+# Save to a file
+with open('my_database.json', 'w') as f:
+    json.dump(data, f)
+```
+
+#### Using offline mode
+
+Once you have the json file, you can initialize an offline session. This session will
+behave exactly like a normal session but will read from the file instead of the
+database.
+
+```python
+from flexilims.offline import OfflineFlexilims
+
+# Initialize the offline session
+session = OfflineFlexilims('my_database.json')
+
+# Use it as a normal session
+mice = session.get(datatype='mouse')
+```
+
+Note that `post` and `update` requests will modify the loaded data but will NOT by
+default save the changes to the json file. To do so you need to initialize the session
+with `edit_file=True`.
+
+```python
+session = OfflineFlexilims('my_database.json', edit_file=True)
+# This will modify the file 'my_database.json'
+session.update_one(id='hexcode000000000', name='new_name')
 ```
 
 ### Utilities
