@@ -175,12 +175,7 @@ def test_get_req():
     assert (len(r) == 1) and (r[0]["name"] == "test_dataset")
     r = sess.get(project_id=PROJECT_ID, name="test_dataset", datatype="dataset")
     # It works even without the project_id
-    with pytest.raises(OSError) as exc_info:
-        r = sess.get(datatype="dataset", name="test_dataset")
-    assert (
-        exc_info.value.args[0]
-        == "Error 400:  you need to provide project_id to query for [dataset]"
-    )
+    r = sess.get(datatype="dataset", name="test_dataset")
 
 
 @not_on_github
@@ -854,6 +849,7 @@ def test_multiproject():
 
 
 if __name__ == "__main__":
+    test_get_req()
     test_update_many_req()
     test_delete()
     test_update_one()
@@ -863,7 +859,7 @@ if __name__ == "__main__":
     test_session_creation()
     test_safe_execute()
     test_unvalid_request()
-    test_get_req()
+
     test_get_error()
     test_get_children()
     test_get_children_error()
