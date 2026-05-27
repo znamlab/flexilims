@@ -74,6 +74,16 @@ You can specify the `project_id` in the call to get if you didn't set it at sess
 creation (or if you want to access a different project for this request). It is possible
 to query a selection of the datatype, see docstring for documentation.
 
+You can also restrict the number of results using the `limit` parameter, or search for entities across all projects by setting `cross_project_entity=True`:
+
+```python
+# Limit the results to 10 entries:
+results = session.get(datatype='session', limit=10)
+
+# Get entities across all projects:
+results = session.get(datatype='mouse', cross_project_entity=True)
+```
+
 The database is hierarchical, each entity has an origin. The list of children from one entity can get obtained using `get_children`:
 
 ```

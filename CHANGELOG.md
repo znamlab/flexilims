@@ -1,3 +1,11 @@
+# v1.2
+
+Features:
+- Support recursive pagination in `download_database` to bypass server-side query limits of 1000 items
+- Add `cross_project_entity` parameter to `get` method to allow querying entities across projects
+- Modernize project configuration by switching to `pyproject.toml`
+- Improve token refresh and retry logic
+
 # v1.1
 
 Minor:
