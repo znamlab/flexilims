@@ -95,6 +95,17 @@ def test_get_req():
     sess.get(datatype="session", project_id=PROJECT_ID)
     r = sess.get(datatype="recording", project_id=PROJECT_ID)
     assert len(r) >= 1
+    # test project filtering: should find nothing if filtered by a different project ID
+    r_wrong_project = sess.get(datatype="recording", project_id="different_project_id")
+    assert len(r_wrong_project) == 0
+    # test session default project_id
+    sess_with_project = flm.OfflineFlexilims(JSON_FILE, project_id=PROJECT_ID)
+    assert len(sess_with_project.get(datatype="recording")) >= 1
+    sess_with_wrong_project = flm.OfflineFlexilims(
+        JSON_FILE, project_id="different_project_id"
+    )
+    assert len(sess_with_wrong_project.get(datatype="recording")) == 0
+
     # test all filtering arguments:
     r = sess.get(
         datatype="recording",
