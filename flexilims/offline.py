@@ -138,9 +138,17 @@ class OfflineFlexilims(object):
             a list of dictionary with one element per valid flexilimns entry.
         """
 
+        if project_id is None:
+            project_id = self.project_id
+
         data = pd.DataFrame(self._flat_data())
         filters = dict(
-            type=datatype, createdBy=created_by, id=id, name=name, origin_id=origin_id
+            type=datatype,
+            createdBy=created_by,
+            id=id,
+            name=name,
+            origin_id=origin_id,
+            project=project_id,
         )
         for key, value in filters.items():
             if value is not None:
@@ -310,7 +318,12 @@ class OfflineFlexilims(object):
         if attributes is not None:
             self._recur_clean(attributes, attr2change, allow_strings=True)
 
+        if project_id is None:
+            project_id = self.project_id
+
         json_data = dict(type=datatype, name=name, attributes=attr2change)
+        if project_id is not None:
+            json_data["project"] = project_id
 
         # create a random hexadecimal id
         existing = [el["id"] for el in self._flat_data()]
