@@ -6,6 +6,9 @@ Features:
 - Modernize project configuration by switching to `pyproject.toml`
 - Improve token refresh and retry logic
 
+Bugfixes:
+- Fix `OfflineFlexilims` to correctly filter entities by project in `get` method and assign `project` field in `post` method
+
 # v1.1
 
 Minor:
