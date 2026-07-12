@@ -3,7 +3,7 @@ name = "flexilims"
 authors = [{name = "Znamlab", email= "antonin.blot@crick.ac.uk"}]
 description = "Python wrapper for Flexilims API"
 readme = "README.md"
-requires-python = ">=3.8.0"
+requires-python = ">=3.10.0"
 dynamic = ["version"]
 
 dependencies = ["requests",
@@ -16,8 +16,6 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -102,13 +100,11 @@ docstring-code-format = true # Also format code in docstrings (e.g. examples)
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{308,309,310,311,312,313}
+envlist = py{310,311,312,313}
 isolated_build = True
 
 [gh-actions]
 python =
-    3.08: py308
-    3.09: py309
     3.10: py310
     3.11: py311
     3.12: py312
