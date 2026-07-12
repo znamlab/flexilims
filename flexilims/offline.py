@@ -34,6 +34,9 @@ class OfflineFlexilims(object):
         self._json_file = None
         self._json_data = None
         self._editable = edit_file
+        self._flat_cache = None
+        self._flat_cache_with_children = None
+        self._entity_index = None
 
         self.session = DummySession()
         self.project_id = project_id
@@ -50,14 +53,30 @@ class OfflineFlexilims(object):
         self._json_file = value
         with open(self._json_file) as f:
             self._json_data = json.load(f)
+        self._invalidate_cache()
         self.log.append(f"Loaded data from {self._json_file}")
+
+    def _invalidate_cache(self):
+        """Invalidate the cached flattened views of `_json_data`."""
+        self._flat_cache = None
+        self._flat_cache_with_children = None
+        self._entity_index = None
 
     def _format_dataframe(self):
         entities = self._flat_dataframe()
         return pd.DataFrame(format_results(entities))
 
     def _flat_data(self, keep_children=False):
-        """Flatten the json data to a list of dict."""
+        """Flatten the json data to a list of dict.
+
+        The result is cached (per `keep_children` value) and reused until the
+        underlying `_json_data` is mutated, since building it involves a full
+        recursive walk plus a `deepcopy` of every entity.
+        """
+        cache_attr = "_flat_cache_with_children" if keep_children else "_flat_cache"
+        cached = getattr(self, cache_attr)
+        if cached is not None:
+            return cached
 
         def recur_add_children(data, output_list):
             # data keys are the name which are also in values["name"]. Ignore them.
@@ -74,6 +93,7 @@ class OfflineFlexilims(object):
 
         data_list = []
         recur_add_children(self._json_data, data_list)
+        setattr(self, cache_attr, data_list)
         return data_list
 
     def _find_entity(self, id):
@@ -88,19 +108,20 @@ class OfflineFlexilims(object):
         Returns:
             a reference to the entity in the database
         """
+        if self._entity_index is None:
+            index = {}
 
-        def recur_find(data, id):
-            for properties in data.values():
-                if properties["id"] == id:
-                    return properties
-                children = properties.get("children", {})
-                if children:
-                    found = recur_find(children, id)
-                    if found:
-                        return found
-            return None
+            def recur_index(data):
+                for properties in data.values():
+                    index[properties["id"]] = properties
+                    children = properties.get("children", {})
+                    if children:
+                        recur_index(children)
 
-        return recur_find(self._json_data, id)
+            recur_index(self._json_data)
+            self._entity_index = index
+
+        return self._entity_index.get(id)
 
     def get(
         self,
@@ -262,6 +283,8 @@ class OfflineFlexilims(object):
             print(f"Updating entity {entity_to_update['name']} in {self._json_file}")
             with open(self._json_file, "w") as f:
                 json.dump(self._json_data, f)
+        self._flat_cache = None
+        self._flat_cache_with_children = None
         return entity_to_update
 
     def _recur_clean(self, attr, output, allow_nulls=True, allow_strings=False):
@@ -355,6 +378,7 @@ class OfflineFlexilims(object):
             print(f"Adding entity {name} to {self._json_file}")
             with open(self._json_file, "w") as f:
                 json.dump(self._json_data, f)
+        self._invalidate_cache()
         return json_data
 
 

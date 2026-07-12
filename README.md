@@ -74,7 +74,8 @@ You can specify the `project_id` in the call to get if you didn't set it at sess
 creation (or if you want to access a different project for this request). It is possible
 to query a selection of the datatype, see docstring for documentation.
 
-You can also restrict the number of results using the `limit` parameter, or search for entities across all projects by setting `cross_project_entity=True`:
+You can also restrict the number of results using the `limit` parameter, or search for
+entities across all projects by setting `cross_project_entity=True`:
 
 ```python
 # Limit the results to 10 entries:
@@ -84,7 +85,8 @@ results = session.get(datatype='session', limit=10)
 results = session.get(datatype='mouse', cross_project_entity=True)
 ```
 
-The database is hierarchical, each entity has an origin. The list of children from one entity can get obtained using `get_children`:
+The database is hierarchical, each entity has an origin. The list of children from one
+entity can get obtained using `get_children`:
 
 ```
 # Get the database entries for all children of one entity
@@ -179,6 +181,22 @@ with `edit_file=True`.
 session = OfflineFlexilims('my_database.json', edit_file=True)
 # This will modify the file 'my_database.json'
 session.update_one(id='hexcode000000000', name='new_name')
+```
+
+#### Caching
+
+`OfflineFlexilims` caches its flattened view of the database (used internally by `get`,
+`get_children` and `_find_entity`) instead of rebuilding it from the raw json tree on
+every call. The cache is invalidated automatically whenever the data changes, i.e.
+after `post()`, after `update_one()`, and whenever the `json_file` attribute is (re)set.
+
+If you edit `my_database.json` on disk outside of the session (or another process
+changes it) and want the running session to pick up those changes, reassign
+`json_file` to force a reload from disk and clear the cache:
+
+```python
+# Reload the data from disk and reset the cache
+session.json_file = session.json_file
 ```
 
 ### Utilities
