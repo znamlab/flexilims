@@ -1,3 +1,14 @@
+# v1.3
+
+Performance:
+- Cache `OfflineFlexilims` to increase performance. `get`, `get_children`, and other
+entity lookups add to rebuild and deep-copy the whole tree on every call. Use cache
+instead The cache is invalidated on `post`, `update_one`, and when reassigning
+`json_file`.
+
+Tests:
+- Rewrite `tests/test_offline.py` automatically with claude to adapt to knew format
+
 # v1.2
 
 Features:
