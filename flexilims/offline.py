@@ -8,14 +8,19 @@ Functions to generate the JSON are also included.
 
 import json
 from copy import deepcopy
+from pathlib import Path
 from warnings import warn
 
 import pandas as pd
 
-from flexilims.utils import FlexilimsError, check_flexilims_validity, format_results
+from flexilims.utils import FlexilimsError, check_flexilims_validity
 
 
 class OfflineFlexilims(object):
+    # Both are set by the `json_file` setter, called at the end of `__init__`.
+    _json_file: str | Path
+    _json_data: dict
+
     def __init__(self, json_file, project_id=None, edit_file=False):
         """Create offline Flexilims session.
 
@@ -31,8 +36,6 @@ class OfflineFlexilims(object):
         """
         self.username = "Offline"
         self.base_url = "Offline"
-        self._json_file = None
-        self._json_data = None
         self._editable = edit_file
         self._flat_cache = None
         self._flat_cache_with_children = None
@@ -61,10 +64,6 @@ class OfflineFlexilims(object):
         self._flat_cache = None
         self._flat_cache_with_children = None
         self._entity_index = None
-
-    def _format_dataframe(self):
-        entities = self._flat_dataframe()
-        return pd.DataFrame(format_results(entities))
 
     def _flat_data(self, keep_children=False):
         """Flatten the json data to a list of dict.
@@ -494,7 +493,8 @@ class DummySession(object):
 
 
 if __name__ == "__main__":
-    import flexiznam as flz
+    # flexiznam is a lab package, not a dependency of flexilims
+    import flexiznam as flz  # ty: ignore[unresolved-import]
 
     import flexilims as flm
 

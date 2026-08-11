@@ -22,17 +22,14 @@ repos:
       rev: v0.9.9
       hooks:
         - id: ruff
-          args: [ --config=pyproject.toml ]
+          args: [ --config=pyproject.toml, --fix ]
         - id: ruff-format
           args: [ --config=pyproject.toml ]
-    - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.13.0
+    - repo: https://github.com/astral-sh/ty-pre-commit
+      rev: v0.0.70
       hooks:
-          - id: mypy
-            additional_dependencies:
-                - types-setuptools
-                - types-PyYAML
-                - types-requests
+          - id: ty
+            # Same type checker as CI (python-uv-ci runs `ty check`)
     - repo: https://github.com/mgedmin/check-manifest
       rev: "0.50"
       hooks:
