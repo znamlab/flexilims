@@ -29,6 +29,9 @@ class Flexilims(object):
         token: if you already have a token, you can pass it here
     """
 
+    # Set by `create_session`, which is called at the end of `__init__`.
+    session: requests.Session
+
     def __init__(
         self, username, password, project_id=None, base_url=BASE_URL, token=None
     ):
@@ -38,14 +41,13 @@ class Flexilims(object):
         self.username = username
         self.password = password
         self.base_url = base_url
-        self.session = None
         self.project_id = project_id
         self.log = []
         self.create_session(password, token=token)
 
     def create_session(self, password, token=None):
         """Create a session with authentication information"""
-        if self.session is not None:
+        if getattr(self, "session", None) is not None:
             print("Session already exists.")
             return
 
@@ -411,6 +413,10 @@ def parse_error(error_message):
         ".*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>"
     )
     m = re.match(pattern=regexp, string=error_message)
+    if m is None:
+        # Not the expected html page. Return the raw message rather than crashing so
+        # that the caller can still report what the server said.
+        return {"type": "unknown", "message": error_message, "description": ""}
     return {name: v for name, v in zip(("type", "message", "description"), m.groups())}
 
 

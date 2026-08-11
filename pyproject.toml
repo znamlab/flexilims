@@ -32,13 +32,14 @@ classifiers = [
 "Source Code" = "https://github.com/znamlab/flexilims"
 "User Support" = "https://github.com/znamlab/flexilims/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest",
   "pytest-cov",
   "coverage",
   "tox",
-  "mypy",
+  "ty",
+  "numpy",
   "pre-commit",
   "ruff",
   "setuptools_scm",
@@ -61,10 +62,12 @@ exclude = ["tests", "docs*"]
 
 
 [tool.pytest.ini_options]
-addopts = "--cov=flexilims"
 filterwarnings = [
     "error",
 ]
+
+[tool.coverage.run]
+source = ["flexilims"]
 
 [tool.setuptools_scm]
 
@@ -74,7 +77,6 @@ ignore = [
   "tox.ini",
   "tests/",
   "docs/",
-  "docs/source/",
 ]
 
 
@@ -92,7 +94,6 @@ lint.select = [
   #"SIM", # flake8 simplify
   #"C90", # McCabe complexity
 ]
-fix = true
 
 [tool.ruff.format]
 docstring-code-format = true # Also format code in docstrings (e.g. examples)
@@ -111,12 +112,17 @@ python =
     3.13: py313
 
 [testenv]
-extras =
+dependency_groups =
     dev
 commands =
     pytest -v --color=yes --cov=flexilims --cov-report=xml
 """
 
+
+[tool.ty.src]
+# Tests import `flexiznam`, a lab package that is not installable in CI, and are
+# not type annotated. Only the library itself is type checked.
+include = ["flexilims"]
 
 [tool.codespell]
 skip = '.git'

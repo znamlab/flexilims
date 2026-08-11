@@ -1,3 +1,25 @@
+# Unreleased
+
+CI:
+- Replace the `neuroinformatics-unit/actions` workflows with the reusable
+`znamlab/python-uv-ci` workflow (uv-based lint, `ty` type check and tests).
+- Run the test suite in CI for the first time: remove the `raise IOError` that
+`tests/test_flexilims.py` triggered under GitHub Actions. Crick-network tests stay
+skipped there.
+- Move the `dev` dependencies from an extra to a PEP 735 dependency group so `uv sync`
+installs them, and add the previously undeclared `numpy` plus `ty`.
+- Replace mypy with `ty` in pre-commit so the local hook and CI run the same type
+checker.
+- Replace the tag release workflow: build with `uv build` and attach the sdist and wheel
+to the GitHub Release (the old job pointed at a deleted `release_notes.md`).
+- Drop `docs_build_and_deploy.yml`, which built Sphinx docs that do not exist.
+
+Bugfixes:
+- `parse_error` returns the raw server message instead of raising `AttributeError` when
+the response is not the expected html error page.
+- Remove `OfflineFlexilims._format_dataframe`, dead code calling a method that does not
+exist.
+
 # v1.3
 
 Performance:
