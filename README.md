@@ -79,10 +79,10 @@ entities across all projects by setting `cross_project_entity=True`:
 
 ```python
 # Limit the results to 10 entries:
-results = session.get(datatype='session', limit=10)
+results = session.get(datatype="session", limit=10)
 
 # Get entities across all projects:
-results = session.get(datatype='mouse', cross_project_entity=True)
+results = session.get(datatype="mouse", cross_project_entity=True)
 ```
 
 The database is hierarchical, each entity has an origin. The list of children from one
@@ -146,14 +146,16 @@ from flexilims.offline import download_database
 
 # Credentials are required to download the database
 session = flm.Flexilims(
-    username='MyUserName', password='Password', project_id='hexcode000000000')
+    username="MyUserName", password="Password", project_id="hexcode000000000"
+)
 
 # Download the database, here only mouse and session datatypes
-data = download_database(session, types=['mouse', 'sample', 'recording', 'session',
-'dataset'])
+data = download_database(
+    session, types=["mouse", "sample", "recording", "session", "dataset"]
+)
 
 # Save to a file
-with open('my_database.json', 'w') as f:
+with open("my_database.json", "w") as f:
     json.dump(data, f)
 ```
 
@@ -167,10 +169,10 @@ database.
 from flexilims.offline import OfflineFlexilims
 
 # Initialize the offline session
-session = OfflineFlexilims('my_database.json')
+session = OfflineFlexilims("my_database.json")
 
 # Use it as a normal session
-mice = session.get(datatype='mouse')
+mice = session.get(datatype="mouse")
 ```
 
 Note that `post` and `update` requests will modify the loaded data but will NOT by
@@ -178,9 +180,9 @@ default save the changes to the json file. To do so you need to initialize the s
 with `edit_file=True`.
 
 ```python
-session = OfflineFlexilims('my_database.json', edit_file=True)
+session = OfflineFlexilims("my_database.json", edit_file=True)
 # This will modify the file 'my_database.json'
-session.update_one(id='hexcode000000000', name='new_name')
+session.update_one(id="hexcode000000000", name="new_name")
 ```
 
 #### Caching
