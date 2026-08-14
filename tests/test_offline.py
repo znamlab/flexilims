@@ -2,12 +2,13 @@ import datetime
 import json
 import os
 import shutil
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 
 try:
-    from flexiznam.config.config_tools import get_password
+    get_password = import_module("flexiznam.config.config_tools").get_password
 except ImportError:
     print("Flexiznam is not installed")
     get_password = None
@@ -46,7 +47,10 @@ def _load_json(path):
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test works only in Crick network.")
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS or get_password is None,
+    reason="Test requires the Crick network and flexiznam credentials.",
+)
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 

@@ -1,0 +1,20 @@
+name: pypi private
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to GitLab PyPI
+    uses: znamlab/gitlab-pypi-publish/.github/workflows/gitlab-pypi-publish.yml@v26.7.0
+    permissions:
+      contents: read
+    with:
+      gitlab_project_id: ${{ vars.GITLAB_PROJECT_ID }}
+    secrets:
+      GITLAB_PYPI_PUBLISH_USERNAME: ${{ secrets.GITLAB_PYPI_PUBLISH_USERNAME }}
+      GITLAB_PYPI_PUBLISH_TOKEN: ${{ secrets.GITLAB_PYPI_PUBLISH_TOKEN }}

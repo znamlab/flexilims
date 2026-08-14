@@ -8,7 +8,7 @@ This file just does that.
 import json
 from pathlib import Path
 
-from flexiznam.config.config_tools import get_password
+from flexiznam.config.config_tools import get_password  # ty: ignore[unresolved-import]
 
 import flexilims as flm
 

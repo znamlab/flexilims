@@ -2,12 +2,13 @@
 
 import datetime
 import os
+from importlib import import_module
 
 import numpy as np
 import pytest
 
 try:
-    from flexiznam.config.config_tools import get_password
+    get_password = import_module("flexiznam.config.config_tools").get_password
 except ImportError:
     print("Flexiznam is not installed. Will crash at steps requiring passwords")
     get_password = None
@@ -27,7 +28,11 @@ PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 if IN_GITHUB_ACTIONS:
-    raise IOError(f"GITHUB actions was `{os.getenv('GITHUB_ACTIONS')}`")
+    pytest.skip(
+        "Flexilims database is not accessible from GitHub Actions workers.",
+        allow_module_level=True,
+    )
+
 print("Are we in github actions?")
 print(os.getenv("GITHUB_ACTIONS"))
 print("------------------")

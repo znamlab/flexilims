@@ -31,8 +31,8 @@ class OfflineFlexilims(object):
         """
         self.username = "Offline"
         self.base_url = "Offline"
-        self._json_file = None
-        self._json_data = None
+        self._json_file = json_file
+        self._json_data = {}
         self._editable = edit_file
         self._flat_cache = None
         self._flat_cache_with_children = None
@@ -63,7 +63,7 @@ class OfflineFlexilims(object):
         self._entity_index = None
 
     def _format_dataframe(self):
-        entities = self._flat_dataframe()
+        entities = self._flat_data()
         return pd.DataFrame(format_results(entities))
 
     def _flat_data(self, keep_children=False):
@@ -494,7 +494,7 @@ class DummySession(object):
 
 
 if __name__ == "__main__":
-    import flexiznam as flz
+    import flexiznam as flz  # ty: ignore[unresolved-import]
 
     import flexilims as flm
 
