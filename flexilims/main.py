@@ -38,24 +38,23 @@ class Flexilims(object):
         self.username = username
         self.password = password
         self.base_url = base_url
-        self.session = None
         self.project_id = project_id
         self.log = []
-        self.create_session(password, token=token)
+        self.session = self.create_session(password, token=token)
 
     def create_session(self, password, token=None):
         """Create a session with authentication information"""
-        if self.session is not None:
+        if hasattr(self, "session"):
             print("Session already exists.")
-            return
+            return self.session
 
         session = requests.Session()
         if token is None:
             token = get_token(self.username, password, self.base_url)
 
         session.headers.update(token)
-        self.session = session
         self.log.append("Session created for user %s" % self.username)
+        return session
 
     def update_token(self, timeout=600):
         """Update the token in the session"""
@@ -411,6 +410,8 @@ def parse_error(error_message):
         ".*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>"
     )
     m = re.match(pattern=regexp, string=error_message)
+    if m is None:
+        raise ValueError("Could not parse the Flexilims error response")
     return {name: v for name, v in zip(("type", "message", "description"), m.groups())}
 
 

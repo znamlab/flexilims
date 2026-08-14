@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 try:
-    from flexiznam.config.config_tools import get_password
+    from flexiznam.config.config_tools import get_password  # ty: ignore[unresolved-import]
 except ImportError:
     print("Flexiznam is not installed")
     get_password = None

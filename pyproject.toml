@@ -101,6 +101,9 @@ fix = true
 [tool.ruff.format]
 docstring-code-format = true # Also format code in docstrings (e.g. examples)
 
+[tool.ty.src]
+exclude = ["tests/preformance_issues.ipynb"]
+
 [tool.tox]
 legacy_tox_ini = """
 [tox]
