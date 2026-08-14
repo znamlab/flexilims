@@ -26,6 +26,12 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+if IN_GITHUB_ACTIONS:
+    pytest.skip(
+        "Flexilims database is not accessible from GitHub Actions workers.",
+        allow_module_level=True,
+    )
+
 print("Are we in github actions?")
 print(os.getenv("GITHUB_ACTIONS"))
 print("------------------")
