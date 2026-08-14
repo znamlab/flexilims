@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.8.0"
 dynamic = ["version"]
 
-dependencies = ["requests",
-        "pandas",
-        "pyyaml"]
+dependencies = [
+    "requests",
+    "pandas",
+    "pyyaml",
+]
 
 license = {text = "MIT"}
 
@@ -125,3 +127,11 @@ commands =
 [tool.codespell]
 skip = '.git'
 check-hidden = true
+
+[dependency-groups]
+dev = [
+    "ptest>=2.0.3",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.16.3",
+    "ty>=0.0.71",
+]
