@@ -51,6 +51,7 @@ def _load_json(path):
     IN_GITHUB_ACTIONS or get_password is None,
     reason="Test requires the Crick network and flexiznam credentials.",
 )
+@pytest.mark.integration
 def test_download_database(tmp_path):
     from flexilims.offline import download_database
 
