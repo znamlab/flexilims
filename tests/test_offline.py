@@ -2,12 +2,13 @@ import datetime
 import json
 import os
 import shutil
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 
 try:
-    from flexiznam.config.config_tools import get_password  # ty: ignore[unresolved-import]
+    get_password = import_module("flexiznam.config.config_tools").get_password
 except ImportError:
     print("Flexiznam is not installed")
     get_password = None

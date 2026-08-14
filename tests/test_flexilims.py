@@ -2,12 +2,13 @@
 
 import datetime
 import os
+from importlib import import_module
 
 import numpy as np
 import pytest
 
 try:
-    from flexiznam.config.config_tools import get_password  # ty: ignore[unresolved-import]
+    get_password = import_module("flexiznam.config.config_tools").get_password
 except ImportError:
     print("Flexiznam is not installed. Will crash at steps requiring passwords")
     get_password = None
