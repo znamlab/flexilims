@@ -1,0 +1,31 @@
+name: Python uv CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".gitignore"
+      - "LICENSE"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".gitignore"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+jobs:
+  python-uv-ci:
+    uses: znamlab/python-uv-ci/.github/workflows/python-uv-ci.yml@v26.7.1
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      run_tests: true
+      run_lint: true
+      type_checker: ty
