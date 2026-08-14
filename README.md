@@ -1,5 +1,8 @@
 # Flexilims repository
 
+[![CI](https://github.com/znamlab/flexilims/actions/workflows/python-uv-ci.yml/badge.svg)](https://github.com/znamlab/flexilims/actions/workflows/python-uv-ci.yml)
+[![Build and publish](https://github.com/znamlab/flexilims/actions/workflows/gitlab-pypi-publish.yml/badge.svg)](https://github.com/znamlab/flexilims/actions/workflows/gitlab-pypi-publish.yml)
+
 Flexilims is a laboratory database software written and maintained by the database team
 of the Crick. Flexilims web interface can be accessed at https://flexylims.thecrick.org/flexilims/. Mike Gavrielides wrote an API. The documentation is here https://flexylims.thecrick.org/flexilims/api/docs.
 This repository is defining python wrappers to use the API.
