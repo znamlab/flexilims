@@ -16,6 +16,8 @@ except ImportError:
 import flexilims as flm
 from flexilims.main import FlexilimsError
 
+pytestmark = pytest.mark.integration
+
 TEST_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
 # BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
@@ -27,9 +29,9 @@ PROJECT_ID = "606df1ac08df4d77c72c9aa4"  # <- test_api project
 PROJECT_ID2 = "610989f9a651ff0b6237e0f6"  # <- test_api demo project
 MOUSE_ID = "6094f7212597df357fa24a8c"
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
-if IN_GITHUB_ACTIONS:
+if IN_GITHUB_ACTIONS or get_password is None:
     pytest.skip(
-        "Flexilims database is not accessible from GitHub Actions workers.",
+        "Tests require the Crick network and flexiznam credentials.",
         allow_module_level=True,
     )
 
@@ -38,7 +40,8 @@ print(os.getenv("GITHUB_ACTIONS"))
 print("------------------")
 
 not_on_github = pytest.mark.skipif(
-    IN_GITHUB_ACTIONS, reason="Test works only in Crick network."
+    IN_GITHUB_ACTIONS or get_password is None,
+    reason="Test requires the Crick network and flexiznam credentials.",
 )
 
 

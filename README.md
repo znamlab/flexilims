@@ -216,3 +216,29 @@ List existing projects and their attributes
 # Testing
 
 Tests require `flexiznam` to get the password.
+
+## Contributing
+
+Create the development environment from the lockfile:
+
+```bash
+uv sync --group dev
+```
+
+Run the regular test and quality checks with:
+
+```bash
+uv run pytest
+uv run ruff format --check
+uv run ruff check
+uv run ty check
+```
+
+The default test suite is network-free. Tests marked `integration` access the
+Flexilims test service and are skipped unless explicitly enabled. To run them,
+connect to the Crick network (or VPN), install and configure `flexiznam` so it
+can retrieve your Flexilims credentials, then run:
+
+```bash
+uv run pytest --run-integration
+```
