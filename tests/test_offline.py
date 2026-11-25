@@ -131,20 +131,10 @@ def test_download_database_pagination():
                 }
             )
 
-        def get(self, datatype, date_created=None, date_created_operator="gt"):
-            # Filter the mock data by datatype
+        def get(self, datatype, limit=1000, offset=0):
+            # Filter the mock data by datatype and paginate with offset/limit
             items = [item for item in self.mock_data if item["type"] == datatype]
-            if date_created is not None:
-                if date_created_operator == "gt":
-                    items = [
-                        item for item in items if item["dateCreated"] > date_created
-                    ]
-                elif date_created_operator == "lt":
-                    items = [
-                        item for item in items if item["dateCreated"] < date_created
-                    ]
-            # Enforce the server pagination limit of 1000
-            return items[:1000]
+            return items[offset : offset + limit]
 
     mock_sess = MockFlexilimsSession()
     json_data = download_database(
@@ -602,11 +592,17 @@ def test_get_limit_cross_project_and_multi_query():
     assert len(sess.get(datatype="recording")) == 0
     assert len(sess.get(datatype="recording", cross_project_entity=True)) == 1
 
-    # limit slices results
+    # limit and offset paginate results
     all_entries = sess.get(cross_project_entity=True)
-    assert len(all_entries) >= 2
+    assert len(all_entries) >= 3
     assert len(sess.get(cross_project_entity=True, limit=2)) == 2
     assert len(sess.get(cross_project_entity=True, limit=0)) == 0
+    page1 = sess.get(cross_project_entity=True, limit=2, offset=0)
+    page2 = sess.get(cross_project_entity=True, limit=2, offset=2)
+    assert [e["id"] for e in page1 + page2] == [e["id"] for e in all_entries[:4]]
+    assert sess.get(cross_project_entity=True, offset=999) == []
+    with pytest.raises(FlexilimsError, match="offset"):
+        sess.get(cross_project_entity=True, offset=-1)
 
     # multi-attribute query_key / query_value (AND semantics)
     sess_proj = flm.OfflineFlexilims(JSON_FILE, project_id=PROJECT_ID)
@@ -813,11 +809,13 @@ def test_update_one_and_post_nested_flags_and_attr_validation():
     assert created["attributes"]["nested"]["empty_str"] == ""
 
 
-def test_download_database_inclusive_gt_and_orphans(caplog):
+def test_download_database_offset_pagination_and_orphans(caplog):
     from flexilims.offline import download_database
 
-    class InclusiveGtSession:
+    class UnsortedOffsetSession:
         def __init__(self):
+            # Reverse-ordered and missing dateCreated to verify offset pagination
+            # does not depend on dateCreated or sort order
             self.items = [
                 {"id": "m1", "type": "mouse", "name": "m1", "origin_id": None},
                 *[
@@ -825,22 +823,18 @@ def test_download_database_inclusive_gt_and_orphans(caplog):
                         "id": f"d_{i}",
                         "type": "dataset",
                         "name": f"d_{i}",
-                        "dateCreated": 1000 + i,
                         "origin_id": "m1",
                     }
-                    for i in range(1500)
+                    for i in reversed(range(1500))
                 ],
             ]
 
-        def get(self, datatype, date_created=None, date_created_operator="gt"):
+        def get(self, datatype, limit=1000, offset=0):
             items = [it for it in self.items if it["type"] == datatype]
-            if date_created is not None and date_created_operator == "gt":
-                # Inclusive >= matching the server docstring
-                items = [it for it in items if it["dateCreated"] >= date_created]
-            return items[:1000]
+            return items[offset : offset + limit]
 
     db = download_database(
-        InclusiveGtSession(), types=("mouse", "dataset"), verbose=False
+        UnsortedOffsetSession(), types=("mouse", "dataset"), verbose=False
     )
     assert db["m1"]["origin_id"] is None
     assert len(db["m1"]["children"]) == 1500
@@ -848,7 +842,7 @@ def test_download_database_inclusive_gt_and_orphans(caplog):
     # Downloading child without parent logs a warning (does not raise under -W error)
     with caplog.at_level("WARNING", logger="flexilims.offline"):
         orphan_db = download_database(
-            InclusiveGtSession(), types=("dataset",), verbose=False
+            UnsortedOffsetSession(), types=("dataset",), verbose=False
         )
     assert orphan_db == {}
     assert "1500 downloaded entities" in caplog.text
@@ -881,3 +875,24 @@ def test_download_database_inclusive_gt_and_orphans(caplog):
             return []
 
     assert download_database(EmptySession(), types=("mouse",), verbose=False) == {}
+
+    # Server ignoring offset (repeating the same 1000 items) stops instead of looping
+    class StuckPaginationSession:
+        def __init__(self):
+            self.calls = 0
+            self.page = [
+                {"id": f"m_{i}", "type": "mouse", "name": f"m_{i}", "origin_id": None}
+                for i in range(1000)
+            ]
+
+        def get(self, datatype, limit=1000, offset=0):
+            self.calls += 1
+            return self.page
+
+    stuck_sess = StuckPaginationSession()
+    caplog.clear()
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        stuck_db = download_database(stuck_sess, types=("mouse",), verbose=False)
+    assert stuck_sess.calls == 2
+    assert len(stuck_db) == 1000
+    assert "avoid an infinite loop" in caplog.text

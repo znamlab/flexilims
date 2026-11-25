@@ -150,6 +150,7 @@ class OfflineFlexilims(object):
         date_created_operator=None,
         cross_project_entity=False,
         limit=None,
+        offset=None,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -172,7 +173,10 @@ class OfflineFlexilims(object):
                 'gt') both include exact match
             cross_project_entity (bool): whether to include cross project entity in the
                 results (default to False). When True, project filtering is skipped.
-            limit (int): maximum number of results to return (default to None)
+            limit (int): maximum number of results to return (default to None, returns
+                all matching entries)
+            offset (int): 0-based number of matching results to skip for pagination
+                (default to None)
 
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
@@ -180,6 +184,10 @@ class OfflineFlexilims(object):
 
         if project_id is None:
             project_id = self.project_id
+
+        start = offset if offset is not None else 0
+        if start < 0:
+            raise FlexilimsError("offset must be non-negative")
 
         if date_created is not None:
             if date_created_operator is None:
@@ -201,6 +209,9 @@ class OfflineFlexilims(object):
             else:
                 query_pairs = [(query_key, query_value)]
 
+        if limit is not None and limit <= 0:
+            return []
+
         filters = dict(
             type=datatype,
             createdBy=created_by,
@@ -211,6 +222,7 @@ class OfflineFlexilims(object):
         )
         active_filters = {k: v for k, v in filters.items() if v is not None}
 
+        matched = 0
         results = []
         for el in self._flat_data():
             if any(el.get(k) != v for k, v in active_filters.items()):
@@ -227,10 +239,13 @@ class OfflineFlexilims(object):
                 attrs = el.get("attributes", {})
                 if not all(k in attrs and attrs[k] == v for k, v in query_pairs):
                     continue
+            if matched < start:
+                matched += 1
+                continue
             results.append(deepcopy(el))
             if limit is not None and len(results) >= limit:
                 break
-        return results[:limit] if limit is not None else results
+        return results
 
     def get_children(self, id):
         """Get the children of one entry based on its hexadecimal id
@@ -488,38 +503,33 @@ def download_database(flexilims_session, types, verbose=True):
         if verbose:
             print(f"Downloading {datatype}")
 
+        page_size = 1000
         datatype_data = []
         seen_ids = set()
-        last_date = None
+        offset = 0
         while True:
-            if last_date is None:
-                data = flexilims_session.get(datatype=datatype)
-            else:
-                data = flexilims_session.get(
-                    datatype=datatype,
-                    date_created=last_date,
-                    date_created_operator="gt",
-                )
+            data = flexilims_session.get(
+                datatype=datatype, limit=page_size, offset=offset
+            )
             if not data:
                 break
-            new_items = [item for item in data if item["id"] not in seen_ids]
-            for item in new_items:
-                seen_ids.add(item["id"])
-                datatype_data.append(item)
-            if len(data) < 1000:
+            new_count = 0
+            for item in data:
+                if item["id"] not in seen_ids:
+                    seen_ids.add(item["id"])
+                    datatype_data.append(item)
+                    new_count += 1
+            if new_count == 0:
+                logger.warning(
+                    "Pagination for %s returned no new entities at offset %d; "
+                    "stopping to avoid an infinite loop.",
+                    datatype,
+                    offset,
+                )
                 break
-            dates = [
-                item.get("dateCreated")
-                for item in data
-                if item.get("dateCreated") is not None
-            ]
-            if not dates:
+            if len(data) < page_size:
                 break
-            max_date = max(dates)
-            if last_date is not None and max_date <= last_date:
-                last_date = max_date + 1
-            else:
-                last_date = max_date
+            offset += len(data)
 
         if verbose:
             print(f"    ... {len(datatype_data)} {datatype} entities")

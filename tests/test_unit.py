@@ -200,3 +200,21 @@ def test_update_token_respects_wall_clock_timeout():
     # 2 attempts * 60s = 120s >= 100s deadline (not 20 attempts)
     assert mock_get.call_count == 2
     assert mock_sleep.call_count == 1
+
+
+def test_get_passes_offset_and_limit():
+    sess = Flexilims(
+        "user", "pw", project_id=PROJECT_ID, token={"Authorization": "Bearer tok"}
+    )
+    sess.session = MagicMock()
+    sess.session.get.return_value = _make_mock_response(json_data=[])
+
+    sess.get(datatype="session", limit=50, offset=100)
+    params = sess.session.get.call_args.kwargs["params"]
+    assert params["limit"] == 50
+    assert params["offset"] == 100
+
+    sess.get(datatype="session")
+    params_default = sess.session.get.call_args.kwargs["params"]
+    assert "limit" not in params_default
+    assert "offset" not in params_default

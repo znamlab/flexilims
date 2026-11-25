@@ -99,6 +99,7 @@ class Flexilims(object):
         date_created_operator=None,
         cross_project_entity=False,
         limit=None,
+        offset=None,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -122,7 +123,10 @@ class Flexilims(object):
                 'gt') both include exact match
             cross_project_entity (bool): whether to include cross project entity in the
                 results (default to False)
-            limit (int): maximum number of results to return (default to None)
+            limit (int): maximum number of results to return. If None, omitted from the
+                request (server defaults to 1000, which is also the max per call).
+            offset (int): 0-based number of results to skip for pagination (default to
+                None).
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
@@ -149,6 +153,7 @@ class Flexilims(object):
             "date_created_operator",
             "created_by",
             "limit",
+            "offset",
         )
         for arg_name in args:
             if locals()[arg_name] is not None:

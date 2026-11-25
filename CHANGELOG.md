@@ -39,6 +39,9 @@ with `origin_id=None` for root entities), and set `"origin_id": None` on posted 
 and log a warning when orphaned entities (and their descendants) are omitted.
 
 API / Parity:
+- Add `offset` pagination parameter to `Flexilims.get()` and `OfflineFlexilims.get()`,
+and switch `download_database()` to paginate with `offset` + `limit=1000` instead of
+`date_created`.
 - Remove the server-rejected `other_relations` parameter from `post()` (online and
 offline) and deprecate the unused `project_id` parameter in `update_one()`.
 - Add `limit`, `cross_project_entity`, and multi-attribute `query_key`/`query_value`
