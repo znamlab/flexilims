@@ -116,10 +116,13 @@ def _cleanlist(list2clean):
             _cleanlist(element)
         elif isinstance(element, dict):
             _replace_nones(element)
-        elif element is None:
+        elif element is None or (isinstance(element, float) and math.isnan(element)):
             print("Setting a list element to None. Reply will contain an empty list")
             list2clean[index] = []
-    assert all([e is not None for e in list2clean])
+    assert all(
+        e is not None and not (isinstance(e, float) and math.isnan(e))
+        for e in list2clean
+    )
 
 
 def format_results(results):
@@ -137,12 +140,14 @@ def format_results(results):
         :py:class:`pandas.DataFrame`: Reply formatted as a DataFrame
 
     """
+    formatted = []
     for result in results:
+        row = {k: v for k, v in result.items() if k != "attributes"}
         for attr_name, attr_value in result["attributes"].items():
-            if attr_name in result:
+            if attr_name in row:
                 raise FlexilimsError(
                     "An entity should not have %s as attribute" % attr_name
                 )
-            result[attr_name] = attr_value
-        result.pop("attributes")
-    return pd.DataFrame(results)
+            row[attr_name] = attr_value
+        formatted.append(row)
+    return pd.DataFrame(formatted)

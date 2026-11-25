@@ -70,16 +70,17 @@ class Flexilims(object):
     def update_token(self, timeout=600):
         """Update the token in the session"""
         token = None
-        elapsed_time = 0
-        while token is None and elapsed_time < timeout:
-            elapsed_time += 5
+        deadline = time.monotonic() + timeout
+        while token is None and time.monotonic() < deadline:
             try:
                 token = get_token(
                     self.username, self.password, self.base_url, timeout=self.timeout
                 )
             except (IOError, requests.exceptions.RequestException):
+                if time.monotonic() >= deadline:
+                    break
                 print("Failed to get a token. Retrying in 5 seconds.")
-                time.sleep(5)
+                time.sleep(min(5, max(0, deadline - time.monotonic())))
         if token is None:
             raise IOError("Failed to get a token. Timeout reached.")
         self.session.headers.update(token)
@@ -351,12 +352,14 @@ class Flexilims(object):
         kwargs.setdefault("timeout", self.timeout)
         try:
             rep = function(*args, **kwargs)
-            self.handle_error(rep)
+            handled = self.handle_error(rep)
         except AuthenticationError:
             # try to update the token and retry
             self.update_token()
             rep = function(*args, **kwargs)
-            self.handle_error(rep)
+            handled = self.handle_error(rep)
+        if handled is not None:
+            return handled
         if mode == "json":
             return rep.json()
         elif mode == "content":
@@ -381,19 +384,17 @@ class Flexilims(object):
         # error handling:
         if rep.ok:
             warnings.warn(
-                "Warning. Seems ok but I had an unknown status code %s"
-                % rep.status_code
+                "Warning. Seems ok but I had an unknown status code %s. "
+                "Will return the response object without interpreting it; "
+                "see response.json() to (hopefully) get the data." % rep.status_code
             )
-            warnings.warn("Will return the response object without interpreting it.")
-            warnings.warn("see response.json() to (hopefully) get the data.")
             return rep
         if rep.status_code == 400:
             error_dict = parse_error(rep.content)
             raise IOError("Error %d: %s" % (rep.status_code, error_dict["message"]))
         if rep.status_code == 404:
-            raise IOError(
-                "Page not found is the base url: %s?" % (self.base_url + "get")
-            )
+            url = getattr(rep, "url", None) or self.base_url
+            raise IOError("Page not found: %s" % url)
         if rep.status_code in (401, 403):
             raise AuthenticationError("Forbidden. Are you logged in?")
         raise IOError("Unknown error with status code %d" % rep.status_code)
@@ -429,7 +430,7 @@ def parse_error(error_message):
     regexp = (
         ".*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>"
     )
-    m = re.match(pattern=regexp, string=error_message)
+    m = re.search(pattern=regexp, string=error_message, flags=re.DOTALL)
     if m is None:
         raise ValueError("Could not parse the Flexilims error response")
     return {name: v for name, v in zip(("type", "message", "description"), m.groups())}

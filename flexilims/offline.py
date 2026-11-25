@@ -241,15 +241,14 @@ class OfflineFlexilims(object):
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
-        flat_with_children = self._flat_data(keep_children=True)
-        parent = [data for data in flat_with_children if data["id"] == id]
-        assert len(parent) == 1, "Parent not found"
-        parent = parent[0]
+        parent = self._find_entity(id)
+        if parent is None:
+            raise FlexilimsError(f"Entity with id '{id}' not found")
         if "children" not in parent:
             return []
         # remove children below
         output = []
-        for child, prop in parent["children"].items():
+        for prop in parent["children"].values():
             childless = {k: v for k, v in prop.items() if k != "children"}
             output.append(deepcopy(childless))
         return output
@@ -333,7 +332,7 @@ class OfflineFlexilims(object):
         attr2change = {}
         if cleaned_attributes is not None:
             self._recur_clean(cleaned_attributes, attr2change, allow_nulls=allow_nulls)
-            entity_to_update["attributes"].update(attr2change)
+            entity_to_update.setdefault("attributes", {}).update(attr2change)
 
         if self._editable:
             print(f"Updating entity {entity_to_update['name']} in {self._json_file}")
@@ -452,8 +451,8 @@ class OfflineFlexilims(object):
             n += 1
         json_data["id"] = int2hex(n)
 
+        json_data["origin_id"] = origin_id
         if origin_id is not None:
-            json_data["origin_id"] = origin_id
             assert parent is not None
             if "children" not in parent:
                 parent["children"] = {}
@@ -543,27 +542,25 @@ def download_database(flexilims_session, types, verbose=True):
             children_by_origin[entry["origin_id"]].append(entry)
         entities_by_id[entry["id"]] = entry
 
-    orphans = [
-        child
-        for origin, children in children_by_origin.items()
-        if origin not in entities_by_id
-        for child in children
-    ]
-    if orphans:
-        logger.warning(
-            "%d downloaded entities have an origin_id that is not in the "
-            "downloaded types and will be omitted from the hierarchy.",
-            len(orphans),
-        )
-
     json_data = {}
+    attached_ids = set()
     for root in roots:
         json_data[root["name"]] = root
-        _add_recursively(root, children_by_origin)
+        attached_ids.add(root["id"])
+        _add_recursively(root, children_by_origin, attached_ids)
+
+    omitted_count = len(entities_by_id) - len(attached_ids)
+    if omitted_count > 0:
+        logger.warning(
+            "%d downloaded entities have an origin_id that is not in the "
+            "downloaded types (or descend from one) and will be omitted from the "
+            "hierarchy.",
+            omitted_count,
+        )
     return json_data
 
 
-def _add_recursively(target, children_by_origin):
+def _add_recursively(target, children_by_origin, attached_ids=None):
     """Recursively attach children from `children_by_origin` onto `target`."""
     assert "children" not in target, "Entity already has a `children` field"
     children = children_by_origin.get(target["id"])
@@ -572,7 +569,9 @@ def _add_recursively(target, children_by_origin):
     target["children"] = {}
     for child in children:
         target["children"][child["name"]] = child
-        _add_recursively(child, children_by_origin)
+        if attached_ids is not None:
+            attached_ids.add(child["id"])
+        _add_recursively(child, children_by_origin, attached_ids)
     return target
 
 

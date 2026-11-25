@@ -4,11 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from flexilims.main import DEFAULT_TIMEOUT, Flexilims, get_token
+from flexilims.main import DEFAULT_TIMEOUT, Flexilims, get_token, parse_error
 from flexilims.utils import (
     AuthenticationError,
     FlexilimsError,
     check_flexilims_validity,
+    format_results,
 )
 
 PROJECT_ID = "606df1ac08df4d77c72c9aa4"
@@ -48,6 +49,14 @@ def test_check_flexilims_validity_does_not_mutate_input():
     assert cleaned["a"] == []
     assert cleaned["b"] == [1, []]
     assert cleaned["nested"]["x"] == []
+
+
+def test_check_flexilims_validity_replaces_nan_in_lists():
+    cleaned = check_flexilims_validity(
+        {"vals": [1.0, float("nan")], "nested": [[float("nan"), None]]}
+    )
+    assert cleaned["vals"] == [1.0, []]
+    assert cleaned["nested"] == [[[], []]]
 
 
 def test_online_update_validation_and_non_mutation():
@@ -128,3 +137,66 @@ def test_safe_execute_refreshes_token_on_401_and_403(status_code):
         res = sess.get(datatype="mouse")
     assert res == [{"id": "1"}]
     mock_refresh.assert_called_once()
+
+
+def test_format_results_does_not_mutate_input():
+    results = [{"id": "1", "name": "m1", "attributes": {"a": 10}}]
+    df1 = format_results(results)
+    df2 = format_results(results)
+    assert results == [{"id": "1", "name": "m1", "attributes": {"a": 10}}]
+    assert df1.equals(df2)
+    assert df1.loc[0, "a"] == 10
+
+
+def test_parse_error_multiline_html():
+    html = (
+        "<html>\n<body>\n<p><b>Type</b> Status Report</p>"
+        "<p><b>Message</b> line1\nline2</p>"
+        "<p><b>Description</b> desc</p>\n</body></html>"
+    )
+    parsed = parse_error(html)
+    assert parsed["type"].strip() == "Status Report"
+    assert "line1\nline2" in parsed["message"]
+    assert parsed["description"].strip() == "desc"
+
+
+def test_handle_error_404_url_and_non_200_ok():
+    sess = Flexilims(
+        "user", "pw", project_id=PROJECT_ID, token={"Authorization": "Bearer tok"}
+    )
+    rep_404 = _make_mock_response(status_code=404)
+    rep_404.url = "https://example.org/flexilims/api/delete?id=123"
+    with pytest.raises(IOError, match="delete\\?id=123"):
+        sess.handle_error(rep_404)
+
+    rep_204 = _make_mock_response(status_code=204)
+    sess.session = MagicMock()
+    sess.session.delete.return_value = rep_204
+    with pytest.warns(UserWarning, match="unknown status code 204"):
+        res = sess.delete("123")
+    assert res is rep_204
+
+
+def test_update_token_respects_wall_clock_timeout():
+    sess = Flexilims(
+        "user", "pw", project_id=PROJECT_ID, token={"Authorization": "Bearer tok"}
+    )
+    now = [0.0]
+
+    def fake_monotonic():
+        return now[0]
+
+    def slow_fail(*args, **kwargs):
+        now[0] += 60.0
+        raise IOError("server timeout")
+
+    with (
+        patch("flexilims.main.time.monotonic", side_effect=fake_monotonic),
+        patch("flexilims.main.time.sleep") as mock_sleep,
+        patch("flexilims.main.get_token", side_effect=slow_fail) as mock_get,
+    ):
+        with pytest.raises(IOError, match="Timeout reached"):
+            sess.update_token(timeout=100)
+    # 2 attempts * 60s = 120s >= 100s deadline (not 20 attempts)
+    assert mock_get.call_count == 2
+    assert mock_sleep.call_count == 1

@@ -728,6 +728,23 @@ def test_unknown_id_raises_flexilims_error():
         sess.update_one(id="nope")
     with pytest.raises(FlexilimsError, match="not found"):
         sess.post(datatype="session", name="orphan", origin_id="nope", attributes={})
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.get_children("nope")
+
+
+def test_post_root_has_none_origin_id_and_update_missing_attributes(tmp_path):
+    db_file = tmp_path / "minimal.json"
+    db_file.write_text(
+        json.dumps({"m0": {"id": "1", "type": "mouse", "name": "m0", "project": "p1"}})
+    )
+    sess = flm.OfflineFlexilims(db_file)
+    created = sess.post(datatype="mouse", name="m1", attributes={})
+    assert "origin_id" in created
+    assert created["origin_id"] is None
+
+    # Entity without an "attributes" key can still be updated
+    updated = sess.update_one(id="1", attributes={"note": "added"})
+    assert updated["attributes"]["note"] == "added"
 
 
 def test_update_one_rename_rekeys_and_checks_uniqueness(json_copy):
@@ -834,7 +851,29 @@ def test_download_database_inclusive_gt_and_orphans(caplog):
             InclusiveGtSession(), types=("dataset",), verbose=False
         )
     assert orphan_db == {}
+    assert "1500 downloaded entities" in caplog.text
     assert "omitted from the hierarchy" in caplog.text
+
+    # Orphan count includes descendants of an omitted parent
+    class NestedOrphanSession:
+        def get(self, datatype, **kwargs):
+            data = {
+                "session": [
+                    {"id": "s1", "type": "session", "name": "s1", "origin_id": "m_gone"}
+                ],
+                "recording": [
+                    {"id": "r1", "type": "recording", "name": "r1", "origin_id": "s1"}
+                ],
+            }
+            return data.get(datatype, [])
+
+    caplog.clear()
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        nested_orphan_db = download_database(
+            NestedOrphanSession(), types=("session", "recording"), verbose=False
+        )
+    assert nested_orphan_db == {}
+    assert "2 downloaded entities" in caplog.text
 
     # Empty download returns {}
     class EmptySession:
