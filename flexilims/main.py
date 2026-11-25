@@ -16,6 +16,7 @@ from flexilims.utils import (
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 # Or test API
 # BASE_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
+DEFAULT_TIMEOUT = 60
 
 
 class Flexilims(object):
@@ -27,10 +28,17 @@ class Flexilims(object):
         project_id: hexadecimal id of the project to use
         base_url: base url of the flexilims server
         token: if you already have a token, you can pass it here
+        timeout: default request timeout in seconds (default: 60)
     """
 
     def __init__(
-        self, username, password, project_id=None, base_url=BASE_URL, token=None
+        self,
+        username,
+        password,
+        project_id=None,
+        base_url=BASE_URL,
+        token=None,
+        timeout=DEFAULT_TIMEOUT,
     ):
         assert isinstance(base_url, str), "base_url must be a string"
         assert base_url.endswith("api/"), "base_url must end with 'api/'"
@@ -39,6 +47,7 @@ class Flexilims(object):
         self.password = password
         self.base_url = base_url
         self.project_id = project_id
+        self.timeout = timeout
         self.log = []
         self.session = self.create_session(password, token=token)
 
@@ -50,7 +59,9 @@ class Flexilims(object):
 
         session = requests.Session()
         if token is None:
-            token = get_token(self.username, password, self.base_url)
+            token = get_token(
+                self.username, password, self.base_url, timeout=self.timeout
+            )
 
         session.headers.update(token)
         self.log.append("Session created for user %s" % self.username)
@@ -63,8 +74,10 @@ class Flexilims(object):
         while token is None and elapsed_time < timeout:
             elapsed_time += 5
             try:
-                token = get_token(self.username, self.password, self.base_url)
-            except IOError:
+                token = get_token(
+                    self.username, self.password, self.base_url, timeout=self.timeout
+                )
+            except (IOError, requests.exceptions.RequestException):
                 print("Failed to get a token. Retrying in 5 seconds.")
                 time.sleep(5)
         if token is None:
@@ -335,6 +348,7 @@ class Flexilims(object):
         Returns:
             json or content of the response
         """
+        kwargs.setdefault("timeout", self.timeout)
         try:
             rep = function(*args, **kwargs)
             self.handle_error(rep)
@@ -380,7 +394,7 @@ class Flexilims(object):
             raise IOError(
                 "Page not found is the base url: %s?" % (self.base_url + "get")
             )
-        if rep.status_code == 403:
+        if rep.status_code in (401, 403):
             raise AuthenticationError("Forbidden. Are you logged in?")
         raise IOError("Unknown error with status code %d" % rep.status_code)
 
@@ -421,11 +435,13 @@ def parse_error(error_message):
     return {name: v for name, v in zip(("type", "message", "description"), m.groups())}
 
 
-def get_token(username, password, base_url=BASE_URL):
+def get_token(username, password, base_url=BASE_URL, timeout=DEFAULT_TIMEOUT):
     """Login to the database and create headers with the proper token"""
     try:
         rep = requests.post(
-            base_url + "authenticate", auth=HTTPBasicAuth(username, password)
+            base_url + "authenticate",
+            auth=HTTPBasicAuth(username, password),
+            timeout=timeout,
         )
     except requests.exceptions.ConnectionError:
         raise requests.exceptions.ConnectionError(
@@ -433,6 +449,10 @@ def get_token(username, password, base_url=BASE_URL):
         )
     if rep.ok:
         token = rep.text
+    elif rep.status_code in (401, 403):
+        raise AuthenticationError(
+            "Failed to authenticate. Got an error %d" % rep.status_code
+        )
     else:
         raise IOError("Failed to authenticate. Got an error %d" % rep.status_code)
 
