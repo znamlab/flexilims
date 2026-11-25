@@ -7,12 +7,22 @@ Functions to generate the JSON are also included.
 """
 
 import json
+import logging
+import math
+from collections import defaultdict
 from copy import deepcopy
 from warnings import warn
 
 import pandas as pd
 
 from flexilims.utils import FlexilimsError, check_flexilims_validity, format_results
+
+logger = logging.getLogger(__name__)
+
+
+def _is_missing_origin(value):
+    """Return True if an `origin_id` value represents no parent (None or NaN)."""
+    return value is None or (isinstance(value, float) and math.isnan(value))
 
 
 class OfflineFlexilims(object):
@@ -82,10 +92,13 @@ class OfflineFlexilims(object):
             # data keys are the name which are also in values["name"]. Ignore them.
             for properties in data.values():
                 if keep_children:
-                    output_list.append(deepcopy(properties))
+                    entry = deepcopy(properties)
                 else:
                     childless = {k: v for k, v in properties.items() if k != "children"}
-                    output_list.append(deepcopy(childless))
+                    entry = deepcopy(childless)
+                if "origin_id" in entry and _is_missing_origin(entry["origin_id"]):
+                    entry["origin_id"] = None
+                output_list.append(entry)
                 children = properties.get("children", {})
                 if children:
                     recur_add_children(children, output_list)
@@ -168,28 +181,13 @@ class OfflineFlexilims(object):
         if project_id is None:
             project_id = self.project_id
 
-        data = pd.DataFrame(self._flat_data())
-        filters = dict(
-            type=datatype,
-            createdBy=created_by,
-            id=id,
-            name=name,
-            origin_id=origin_id,
-            project=None if cross_project_entity else project_id,
-        )
-        for key, value in filters.items():
-            if value is not None:
-                data = data[data[key] == value]
         if date_created is not None:
             if date_created_operator is None:
                 date_created_operator = "gt"
-
-            if date_created_operator == "gt":
-                data = data[data["dateCreated"] > date_created]
-            elif date_created_operator == "lt":
-                data = data[data["dateCreated"] < date_created]
-            else:
+            if date_created_operator not in ("gt", "lt"):
                 raise FlexilimsError("date_created_operator should be 'gt' or 'lt'")
+
+        query_pairs = None
         if query_key is not None:
             if isinstance(query_key, (list, tuple)):
                 if not isinstance(query_value, (list, tuple)) or len(query_key) != len(
@@ -203,15 +201,36 @@ class OfflineFlexilims(object):
             else:
                 query_pairs = [(query_key, query_value)]
 
-            valid = []
-            for _, el in data.iterrows():
-                attrs = el["attributes"]
-                if all(k in attrs and attrs[k] == v for k, v in query_pairs):
-                    valid.append(el)
-            return valid[:limit] if limit is not None else valid
-        # get returns a list of dict
-        records = data.to_dict(orient="records")
-        return records[:limit] if limit is not None else records
+        filters = dict(
+            type=datatype,
+            createdBy=created_by,
+            id=id,
+            name=name,
+            origin_id=origin_id,
+            project=None if cross_project_entity else project_id,
+        )
+        active_filters = {k: v for k, v in filters.items() if v is not None}
+
+        results = []
+        for el in self._flat_data():
+            if any(el.get(k) != v for k, v in active_filters.items()):
+                continue
+            if date_created is not None:
+                el_date = el.get("dateCreated")
+                if el_date is None:
+                    continue
+                if date_created_operator == "gt" and not (el_date >= date_created):
+                    continue
+                if date_created_operator == "lt" and not (el_date <= date_created):
+                    continue
+            if query_pairs is not None:
+                attrs = el.get("attributes", {})
+                if not all(k in attrs and attrs[k] == v for k, v in query_pairs):
+                    continue
+            results.append(deepcopy(el))
+            if limit is not None and len(results) >= limit:
+                break
+        return results[:limit] if limit is not None else results
 
     def get_children(self, id):
         """Get the children of one entry based on its hexadecimal id
@@ -286,13 +305,29 @@ class OfflineFlexilims(object):
             cleaned_attributes = check_flexilims_validity(attributes)
 
         entity_to_update = self._find_entity(id)
+        if entity_to_update is None:
+            raise FlexilimsError(f"Entity with id '{id}' not found")
         if datatype is not None:
             assert entity_to_update["type"] == datatype, "Datatype mismatch"
 
         if origin_id is not None:
             entity_to_update["origin_id"] = origin_id
             warn("Updating origin_id will break children/parent hierarchy")
-        if name is not None:
+        if name is not None and name != entity_to_update["name"]:
+            entity_project = entity_to_update.get("project")
+            for existing_el in self._flat_data():
+                if existing_el["id"] == id:
+                    continue
+                if existing_el["name"] == name and (
+                    entity_project is None
+                    or existing_el.get("project") == entity_project
+                ):
+                    raise FlexilimsError(f"Entity with name '{name}' already exists")
+            container, old_key = self._find_entity_container(id)
+            if container is not None and name in container:
+                raise FlexilimsError(f"Entity with name '{name}' already exists")
+            if container is not None and old_key is not None:
+                container[name] = container.pop(old_key)
             entity_to_update["name"] = name
 
         attr2change = {}
@@ -306,7 +341,23 @@ class OfflineFlexilims(object):
                 json.dump(self._json_data, f)
         self._flat_cache = None
         self._flat_cache_with_children = None
-        return entity_to_update
+        return deepcopy(entity_to_update)
+
+    def _find_entity_container(self, entity_id):
+        """Return `(container_dict, key)` holding the entity with `entity_id`."""
+
+        def recur_search(container):
+            for key, properties in container.items():
+                if properties["id"] == entity_id:
+                    return container, key
+                children = properties.get("children", {})
+                if children:
+                    found = recur_search(children)
+                    if found[0] is not None:
+                        return found
+            return None, None
+
+        return recur_search(self._json_data)
 
     def _recur_clean(self, attr, output, allow_nulls=True, allow_strings=False):
         invalid = [[], (), None, {}]
@@ -315,7 +366,9 @@ class OfflineFlexilims(object):
         for k, v in attr.items():
             if isinstance(v, dict) and len(v):
                 output[k] = {}
-                self._recur_clean(v, output[k])
+                self._recur_clean(
+                    v, output[k], allow_nulls=allow_nulls, allow_strings=allow_strings
+                )
                 continue
             if isinstance(v, list):
                 warn("Updating list might not work in offline mode")
@@ -363,12 +416,30 @@ class OfflineFlexilims(object):
         if project_id is None:
             project_id = self.project_id
 
+        # Enforce name uniqueness before mutating the database
+        for existing_el in self._flat_data():
+            if existing_el["name"] == name and (
+                project_id is None or existing_el.get("project") == project_id
+            ):
+                raise FlexilimsError(f"Entity with name '{name}' already exists")
+
+        # Validate parent before allocating an id or mutating state
+        parent = None
+        if origin_id is not None:
+            parent = self._find_entity(origin_id)
+            if parent is None:
+                raise FlexilimsError(f"Origin entity with id '{origin_id}' not found")
+            if name in parent.get("children", {}):
+                raise FlexilimsError(f"Entity with name '{name}' already exists")
+        elif name in self._json_data:
+            raise FlexilimsError(f"Entity with name '{name}' already exists")
+
         json_data = dict(type=datatype, name=name, attributes=attr2change)
         if project_id is not None:
             json_data["project"] = project_id
 
         # create a random hexadecimal id
-        existing = [el["id"] for el in self._flat_data()]
+        existing = {el["id"] for el in self._flat_data()}
         n = 0
 
         def int2hex(n):
@@ -383,9 +454,7 @@ class OfflineFlexilims(object):
 
         if origin_id is not None:
             json_data["origin_id"] = origin_id
-        # Find the parent
-        if origin_id is not None:
-            parent = self._find_entity(origin_id)
+            assert parent is not None
             if "children" not in parent:
                 parent["children"] = {}
             parent["children"][name] = json_data
@@ -396,7 +465,7 @@ class OfflineFlexilims(object):
             with open(self._json_file, "w") as f:
                 json.dump(self._json_data, f)
         self._invalidate_cache()
-        return json_data
+        return deepcopy(json_data)
 
 
 def download_database(flexilims_session, types, verbose=True):
@@ -421,6 +490,7 @@ def download_database(flexilims_session, types, verbose=True):
             print(f"Downloading {datatype}")
 
         datatype_data = []
+        seen_ids = set()
         last_date = None
         while True:
             if last_date is None:
@@ -433,7 +503,10 @@ def download_database(flexilims_session, types, verbose=True):
                 )
             if not data:
                 break
-            datatype_data.extend(data)
+            new_items = [item for item in data if item["id"] not in seen_ids]
+            for item in new_items:
+                seen_ids.add(item["id"])
+                datatype_data.append(item)
             if len(data) < 1000:
                 break
             dates = [
@@ -455,35 +528,51 @@ def download_database(flexilims_session, types, verbose=True):
 
     if verbose:
         print("Create JSON data")
-    # make a dataframe to simplify queries
-    df = pd.DataFrame(all_data)
-    root_entities = df[df["origin_id"].isna()]
+    if not all_data:
+        return {}
+
+    entities_by_id = {}
+    children_by_origin = defaultdict(list)
+    roots = []
+    for item in all_data:
+        entry = deepcopy(item)
+        if _is_missing_origin(entry.get("origin_id")):
+            entry["origin_id"] = None
+            roots.append(entry)
+        else:
+            children_by_origin[entry["origin_id"]].append(entry)
+        entities_by_id[entry["id"]] = entry
+
+    orphans = [
+        child
+        for origin, children in children_by_origin.items()
+        if origin not in entities_by_id
+        for child in children
+    ]
+    if orphans:
+        logger.warning(
+            "%d downloaded entities have an origin_id that is not in the "
+            "downloaded types and will be omitted from the hierarchy.",
+            len(orphans),
+        )
+
     json_data = {}
-    for _, root in root_entities.iterrows():
-        json_data[root["name"]] = root.to_dict()
-        _add_recursively(json_data[root["name"]], root, df)
+    for root in roots:
+        json_data[root["name"]] = root
+        _add_recursively(root, children_by_origin)
     return json_data
 
 
-def _add_recursively(target, entity, df):
-    """Recursively add entities to a dictionary.
-
-    Args:
-        target (dict): Target dictionary
-        entity (pd.Series): FlexiLIMS entity
-        df (pd.DataFrame): DataFrame of entities
-
-    Returns:
-        dict: Entity with children added
-    """
+def _add_recursively(target, children_by_origin):
+    """Recursively attach children from `children_by_origin` onto `target`."""
     assert "children" not in target, "Entity already has a `children` field"
-    children = df[df["origin_id"] == entity["id"]]
-    if children.empty:
+    children = children_by_origin.get(target["id"])
+    if not children:
         return target
     target["children"] = {}
-    for _, child in children.iterrows():
-        target["children"][child["name"]] = child.to_dict()
-        _add_recursively(target["children"][child["name"]], child, df)
+    for child in children:
+        target["children"][child["name"]] = child
+        _add_recursively(child, children_by_origin)
     return target
 
 

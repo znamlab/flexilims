@@ -649,3 +649,196 @@ def test_removed_and_deprecated_params():
             datatype="mouse",
             project_id=PROJECT_ID,
         )
+
+
+def test_post_duplicate_name_does_not_overwrite(json_copy):
+    sess = flm.OfflineFlexilims(json_copy, edit_file=True)
+    assert len(sess.get_children(MOUSE_ID)) == 1
+
+    # Duplicate root name must fail and leave existing entity + children intact
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.post(datatype="mouse", name="test_mouse", attributes={})
+    assert len(sess.get_children(MOUSE_ID)) == 1
+    assert "test_session" in _load_json(json_copy)["test_mouse"]["children"]
+
+    # Duplicate child name must also fail
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.post(
+            datatype="session",
+            name="test_session",
+            origin_id=MOUSE_ID,
+            attributes={},
+        )
+
+
+def test_get_returns_dicts_none_origin_and_handles_empty(tmp_path):
+    sess = flm.OfflineFlexilims(JSON_FILE)
+
+    # query_key returns list of dicts, not pandas Series
+    r = sess.get(
+        datatype="recording",
+        project_id=PROJECT_ID,
+        query_key="rec_attr",
+        query_value="attribute of recording",
+    )
+    assert len(r) == 1
+    assert isinstance(r[0], dict)
+
+    # Root entities have origin_id=None, not NaN
+    mice = sess.get(datatype="mouse", project_id=PROJECT_ID)
+    assert len(mice) == 1
+    assert mice[0]["origin_id"] is None
+
+    # Empty JSON file returns [] without KeyError
+    empty_file = tmp_path / "empty.json"
+    empty_file.write_text("{}")
+    empty_sess = flm.OfflineFlexilims(empty_file)
+    assert empty_sess.get(datatype="mouse") == []
+
+
+def test_cache_and_db_protected_from_caller_mutation():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    res1 = sess.get(datatype="mouse", id=MOUSE_ID)
+    res1[0]["attributes"]["animal_name"] = "MUTATED"
+
+    res2 = sess.get(datatype="mouse", id=MOUSE_ID)
+    assert res2[0]["attributes"]["animal_name"] == "Jerry"
+
+    updated = sess.update_one(
+        id=MOUSE_ID, attributes={"animal_name": "Spike"}, strict_validation=False
+    )
+    updated["attributes"]["animal_name"] = "MUTATED_AGAIN"
+    assert sess.get(datatype="mouse", id=MOUSE_ID)[0]["attributes"]["animal_name"] == (
+        "Spike"
+    )
+
+    created = sess.post(
+        datatype="mouse", name="fresh_mouse", attributes={"animal_name": "Nibbles"}
+    )
+    created["attributes"]["animal_name"] = "MUTATED_POST"
+    assert (
+        sess.get(datatype="mouse", name="fresh_mouse")[0]["attributes"]["animal_name"]
+        == "Nibbles"
+    )
+
+
+def test_unknown_id_raises_flexilims_error():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.update_one(id="nope")
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.post(datatype="session", name="orphan", origin_id="nope", attributes={})
+
+
+def test_update_one_rename_rekeys_and_checks_uniqueness(json_copy):
+    sess = flm.OfflineFlexilims(json_copy, edit_file=True)
+    sess.update_one(id=MOUSE_ID, name="renamed_mouse", datatype="mouse")
+
+    assert "renamed_mouse" in sess._json_data
+    assert "test_mouse" not in sess._json_data
+    on_disk = _load_json(json_copy)
+    assert "renamed_mouse" in on_disk
+    assert "test_mouse" not in on_disk
+
+    # Renaming to an existing name raises FlexilimsError
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.update_one(id=MOUSE_ID, name="test_session", datatype="mouse")
+
+
+def test_update_one_rename_does_not_overwrite_other_project_root(tmp_path):
+    db_file = tmp_path / "multi_project.json"
+    db_file.write_text(
+        json.dumps(
+            {
+                "a": {"id": "1", "type": "mouse", "name": "a", "project": "p1"},
+                "b": {"id": "2", "type": "mouse", "name": "b", "project": "p2"},
+            }
+        )
+    )
+    sess = flm.OfflineFlexilims(db_file)
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.update_one(id="1", name="b", datatype="mouse")
+    assert set(sess._json_data.keys()) == {"a", "b"}
+    assert sess._find_entity("1")["name"] == "a"
+    assert sess._find_entity("2")["name"] == "b"
+
+
+def test_update_one_and_post_nested_flags_and_attr_validation():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    rec = sess.get(datatype="recording", name="test_recording")[0]
+
+    # Invalid attribute name inside attributes is caught
+    with pytest.raises(FlexilimsError):
+        sess.update_one(
+            id=rec["id"],
+            datatype="recording",
+            attributes={"bad.name": 1},
+            strict_validation=False,
+        )
+
+    # allow_nulls=False is forwarded to nested dicts
+    rep = sess.update_one(
+        id=rec["id"],
+        datatype="recording",
+        allow_nulls=False,
+        attributes={"nested": {"keep": 1, "drop_empty": ""}},
+        strict_validation=False,
+    )
+    assert rep["attributes"]["nested"] == {"keep": 1}
+
+    # post forwards allow_strings=True to nested dicts
+    created = sess.post(
+        datatype="session",
+        name="nested_empty_str_session",
+        attributes={"nested": {"empty_str": ""}},
+        strict_validation=False,
+    )
+    assert created["attributes"]["nested"]["empty_str"] == ""
+
+
+def test_download_database_inclusive_gt_and_orphans(caplog):
+    from flexilims.offline import download_database
+
+    class InclusiveGtSession:
+        def __init__(self):
+            self.items = [
+                {"id": "m1", "type": "mouse", "name": "m1", "origin_id": None},
+                *[
+                    {
+                        "id": f"d_{i}",
+                        "type": "dataset",
+                        "name": f"d_{i}",
+                        "dateCreated": 1000 + i,
+                        "origin_id": "m1",
+                    }
+                    for i in range(1500)
+                ],
+            ]
+
+        def get(self, datatype, date_created=None, date_created_operator="gt"):
+            items = [it for it in self.items if it["type"] == datatype]
+            if date_created is not None and date_created_operator == "gt":
+                # Inclusive >= matching the server docstring
+                items = [it for it in items if it["dateCreated"] >= date_created]
+            return items[:1000]
+
+    db = download_database(
+        InclusiveGtSession(), types=("mouse", "dataset"), verbose=False
+    )
+    assert db["m1"]["origin_id"] is None
+    assert len(db["m1"]["children"]) == 1500
+
+    # Downloading child without parent logs a warning (does not raise under -W error)
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        orphan_db = download_database(
+            InclusiveGtSession(), types=("dataset",), verbose=False
+        )
+    assert orphan_db == {}
+    assert "omitted from the hierarchy" in caplog.text
+
+    # Empty download returns {}
+    class EmptySession:
+        def get(self, datatype, **kwargs):
+            return []
+
+    assert download_database(EmptySession(), types=("mouse",), verbose=False) == {}
