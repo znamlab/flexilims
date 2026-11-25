@@ -281,13 +281,10 @@ class OfflineFlexilims(object):
                 stacklevel=2,
             )
 
-        json_data = {}
-        for field in ("name", "origin_id", "attributes"):
-            value = locals()[field]
-            if value is not None:
-                json_data[field] = value
+        cleaned_attributes = None
+        if attributes is not None:
+            cleaned_attributes = check_flexilims_validity(attributes)
 
-        check_flexilims_validity(json_data)
         entity_to_update = self._find_entity(id)
         if datatype is not None:
             assert entity_to_update["type"] == datatype, "Datatype mismatch"
@@ -299,10 +296,8 @@ class OfflineFlexilims(object):
             entity_to_update["name"] = name
 
         attr2change = {}
-        if attributes is not None:
-            self._recur_clean(
-                json_data["attributes"], attr2change, allow_nulls=allow_nulls
-            )
+        if cleaned_attributes is not None:
+            self._recur_clean(cleaned_attributes, attr2change, allow_nulls=allow_nulls)
             entity_to_update["attributes"].update(attr2change)
 
         if self._editable:
@@ -360,7 +355,7 @@ class OfflineFlexilims(object):
 
         # Flexilims cannot handle None value for now
         # requests refuses invalid json, so no NaNs either
-        check_flexilims_validity(attributes)
+        attributes = check_flexilims_validity(attributes)
         attr2change = {}
         if attributes is not None:
             self._recur_clean(attributes, attr2change, allow_strings=True)

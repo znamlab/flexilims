@@ -201,12 +201,12 @@ class Flexilims(object):
 
         params = dict(type=datatype, id=id)
         json_data = {}
-        for field in ("name", "origin_id", "attributes"):
-            value = locals()[field]
-            if value is not None:
-                json_data[field] = value
-
-        check_flexilims_validity(json_data)
+        if name is not None:
+            json_data["name"] = name
+        if origin_id is not None:
+            json_data["origin_id"] = origin_id
+        if attributes is not None:
+            json_data["attributes"] = check_flexilims_validity(attributes)
 
         address = "update-one"
         # add flags
@@ -253,18 +253,17 @@ class Flexilims(object):
         for n, w in zip(["update_key", "query_key"], [update_key, query_key]):
             if (w is not None) and (w.lower() != w):
                 warnings.warn("`%s` should probably be lower case. Trying anyways" % n)
+        cleaned = check_flexilims_validity({update_key: update_value})
         params = dict(
             type=datatype,
             project_id=project_id,
             update_key=update_key,
-            update_value=update_value,
+            update_value=cleaned[update_key],
         )
         if query_key is not None:
             params["query_key"] = query_key
         if query_value is not None:
             params["query_value"] = query_value
-
-        check_flexilims_validity(params)
 
         address = "update-many"
         if strict_validation:
@@ -306,7 +305,7 @@ class Flexilims(object):
 
         # Flexilims cannot handle None value for now
         # requests refuses invalid json, so no NaNs either
-        check_flexilims_validity(attributes)
+        attributes = check_flexilims_validity(attributes)
 
         json_data = dict(
             type=datatype, name=name, project_id=project_id, attributes=attributes
