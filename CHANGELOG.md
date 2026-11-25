@@ -1,3 +1,54 @@
+# Unreleased
+
+CI:
+- Replace the `neuroinformatics-unit/actions` workflows with the reusable
+`znamlab/python-uv-ci` workflow (uv-based lint, `ty` type check and tests).
+- Run the test suite in CI for the first time: remove the `raise IOError` that
+`tests/test_flexilims.py` triggered under GitHub Actions. Crick-network tests stay
+skipped there.
+- Move the `dev` dependencies from an extra to a PEP 735 dependency group so `uv sync`
+installs them, and add the previously undeclared `numpy` plus `ty`.
+- Replace mypy with `ty` in pre-commit so the local hook and CI run the same type
+checker.
+- Replace the tag release workflow: build with `uv build` and attach the sdist and wheel
+to the GitHub Release (the old job pointed at a deleted `release_notes.md`).
+- Drop `docs_build_and_deploy.yml`, which built Sphinx docs that do not exist.
+
+Bugfixes:
+- `parse_error` returns the raw server message instead of raising `AttributeError` when
+the response is not the expected html error page, and parses multiline HTML error pages.
+- Remove `OfflineFlexilims._format_dataframe`, dead code calling a method that does not
+exist.
+- Fix attribute validation in `check_flexilims_validity`: use regex whitespace matching,
+return a cleaned deep copy instead of mutating caller dicts in place, replace `NaN`
+inside lists in `_cleanlist`, and validate `attributes` in `update_one` and `update_key`
+in `update_many`.
+- Stop mutating caller dicts in place in `format_results`.
+- Add default request timeouts (60s, configurable via `timeout`) to `Flexilims` and
+`get_token`, use wall-clock deadlines in `update_token`, fail immediately on HTTP
+401/403 credentials errors in `get_token`, and refresh expired tokens on both 401 and
+403.
+- Return non-200 2xx responses from `safe_execute` as warned, and report the actual
+request URL on 404.
+- Fix `OfflineFlexilims` data integrity and return types: enforce name uniqueness and
+validate `origin_id` in `post`, raise `FlexilimsError` on unknown `id` in `update_one`
+and `get_children`, re-key renamed entities safely, forward `allow_nulls`/`allow_strings`
+to nested dicts, filter `get()` directly in Python (returning deep-copied `list[dict]`
+with `origin_id=None` for root entities), and set `"origin_id": None` on posted roots.
+- Deduplicate paginated results in `download_database`, keep root `origin_id` as `None`,
+and log a warning when orphaned entities (and their descendants) are omitted.
+
+API / Parity:
+- Remove the server-rejected `other_relations` parameter from `post()` (online and
+offline) and deprecate the unused `project_id` parameter in `update_one()`.
+- Add `limit`, `cross_project_entity`, and multi-attribute `query_key`/`query_value`
+support to `OfflineFlexilims.get()`, and pass `strict_validation` via `params` in
+`post()` and `update_many()`.
+
+Tests:
+- Add network-free unit tests in `tests/test_unit.py` and offline regression tests in
+`tests/test_offline.py`.
+
 # v1.3
 
 Performance:
