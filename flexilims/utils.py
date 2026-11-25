@@ -3,10 +3,12 @@
 import math
 import re
 import warnings
+from copy import deepcopy
 
 import pandas as pd
 
 SPECIAL_CHARACTERS = re.compile(r'[\',\.@"+=\-!#$%^&*<>?/\|}{~:]')
+WHITESPACE = re.compile(r"\s")
 
 
 class FlexilimsError(Exception):
@@ -24,10 +26,10 @@ class AuthenticationError(Exception):
 def check_flexilims_validity(attributes, warn_case=False):
     """Check that the data can be uploaded to flexilims
 
-    - Remove None
-    - Warn if attributes have white characters
-    - Crashing if attributes have special characters
-    - [optionally] Warn if attributes are not lowercase. This is a minor display issue
+    - Return a cleaned copy with None / NaN replaced by [] (does not mutate input)
+    - Warn if attribute names have whitespace characters
+    - Crash if attribute names have special characters
+    - [optionally] Warn if attributes are not lowercase. This is a minor display issue;
         attributes defined in the lab design page will always be displayed with the
         same case.
 
@@ -36,26 +38,29 @@ def check_flexilims_validity(attributes, warn_case=False):
         warn_case: if True, warn if attribute names are not lowercase
 
     Returns:
-        None
+        dict: cleaned copy of `attributes`
     """
-    _replace_nones(attributes)
-    for attr_name in attributes:
-        if not attr_name.islower() and warn_case:
-            warnings.warn(
-                "Warning. Attribute names are not case sensitive on the UI."
-                " `%s` might not appear online" % attr_name
-            )
-        if r"\s" in attr_name:
-            warnings.warn(
-                "Warning. Attribute names should not contain white "
-                "characters. `%s` might not appear online" % attr_name
-            )
-
+    cleaned = deepcopy(attributes)
+    _replace_nones(cleaned)
+    for attr_name in cleaned:
+        if not isinstance(attr_name, str):
+            continue
         if SPECIAL_CHARACTERS.search(attr_name) is not None:
             raise FlexilimsError(
                 "Attribute names cannot contain special "
                 "characters. `%s` is invalid" % attr_name
             )
+        if not attr_name.islower() and warn_case:
+            warnings.warn(
+                "Warning. Attribute names are not case sensitive on the UI."
+                " `%s` might not appear online" % attr_name
+            )
+        if WHITESPACE.search(attr_name) is not None:
+            warnings.warn(
+                "Warning. Attribute names should not contain white "
+                "characters. `%s` might not appear online" % attr_name
+            )
+    return cleaned
 
 
 def _replace_nones(attributes):
@@ -111,10 +116,13 @@ def _cleanlist(list2clean):
             _cleanlist(element)
         elif isinstance(element, dict):
             _replace_nones(element)
-        elif element is None:
+        elif element is None or (isinstance(element, float) and math.isnan(element)):
             print("Setting a list element to None. Reply will contain an empty list")
             list2clean[index] = []
-    assert all([e is not None for e in list2clean])
+    assert all(
+        e is not None and not (isinstance(e, float) and math.isnan(e))
+        for e in list2clean
+    )
 
 
 def format_results(results):
@@ -132,12 +140,14 @@ def format_results(results):
         :py:class:`pandas.DataFrame`: Reply formatted as a DataFrame
 
     """
+    formatted = []
     for result in results:
+        row = {k: v for k, v in result.items() if k != "attributes"}
         for attr_name, attr_value in result["attributes"].items():
-            if attr_name in result:
+            if attr_name in row:
                 raise FlexilimsError(
                     "An entity should not have %s as attribute" % attr_name
                 )
-            result[attr_name] = attr_value
-        result.pop("attributes")
-    return pd.DataFrame(results)
+            row[attr_name] = attr_value
+        formatted.append(row)
+    return pd.DataFrame(formatted)

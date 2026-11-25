@@ -1,3 +1,49 @@
+# v26.11.0
+
+Features:
+- Support deleting direct children by type and origin name in `Flexilims.delete()` via
+`delete(datatype=..., origin_name=..., project_id=...)` (non-recursive).
+- Add `offset` pagination parameter to `Flexilims.get()` and `OfflineFlexilims.get()`,
+and switch `download_database()` to paginate with `offset` + `limit=1000` instead of
+`date_created`.
+- Add `limit`, `cross_project_entity`, and multi-attribute `query_key`/`query_value`
+support to `OfflineFlexilims.get()` for parity with online `Flexilims.get()`.
+- Add configurable request timeouts (`timeout=60` by default) to `Flexilims` and
+`get_token` so stalled requests no longer hang indefinitely.
+
+Breaking changes & deprecations:
+- Remove the server-rejected `other_relations` parameter from `post()` (online and
+offline).
+- Deprecate the unused `project_id` parameter in `update_one()` (emits
+`DeprecationWarning` if passed).
+
+Bugfixes:
+- Fix attribute validation in `check_flexilims_validity`: use regex whitespace matching,
+return a cleaned deep copy instead of mutating caller dicts in place, replace `NaN`
+inside lists in `_cleanlist`, and validate `attributes` in `update_one` and `update_key`
+in `update_many`.
+- Stop mutating caller dicts in place in `format_results`.
+- Fail immediately on HTTP 401/403 credential errors in `get_token` instead of retrying
+for 10 minutes in `update_token`, use wall-clock deadlines in `update_token`, and
+refresh expired tokens on both 401 and 403.
+- Return non-200 2xx responses from `safe_execute` as warned, report the actual request
+URL on 404, pass `strict_validation` via `params` in `post()` and `update_many()`, and
+make `parse_error` handle multiline HTML error pages.
+- Fix `OfflineFlexilims` data integrity and return types: enforce name uniqueness and
+validate `origin_id` in `post`, raise `FlexilimsError` on unknown `id` in `update_one`
+and `get_children`, re-key renamed entities safely, forward `allow_nulls`/`allow_strings`
+to nested dicts, filter `get()` directly in Python (returning deep-copied `list[dict]`
+with `origin_id=None` for root entities), and set `"origin_id": None` on posted roots.
+- Deduplicate paginated results in `download_database`, keep root `origin_id` as `None`,
+guard against infinite pagination loops, and log a warning when orphaned entities (and
+their descendants) are omitted.
+
+Tests & Tooling:
+- Add network-free unit tests in `tests/test_unit.py` and expanded offline/live
+regression tests in `tests/test_offline.py`, `tests/test_main_client.py`, and
+`tests/test_flexilims.py`.
+- Add `AGENTS.md` with changelog, git confirmation, and development check guidelines.
+
 # v1.3
 
 Performance:

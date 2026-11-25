@@ -16,6 +16,7 @@ from flexilims.utils import (
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 # Or test API
 # BASE_URL = "http://clvd0-ws-u-t-41.thecrick.test:8080/flexilims/api/"
+DEFAULT_TIMEOUT = 60
 
 
 class Flexilims(object):
@@ -27,10 +28,17 @@ class Flexilims(object):
         project_id: hexadecimal id of the project to use
         base_url: base url of the flexilims server
         token: if you already have a token, you can pass it here
+        timeout: default request timeout in seconds (default: 60)
     """
 
     def __init__(
-        self, username, password, project_id=None, base_url=BASE_URL, token=None
+        self,
+        username,
+        password,
+        project_id=None,
+        base_url=BASE_URL,
+        token=None,
+        timeout=DEFAULT_TIMEOUT,
     ):
         assert isinstance(base_url, str), "base_url must be a string"
         assert base_url.endswith("api/"), "base_url must end with 'api/'"
@@ -39,6 +47,7 @@ class Flexilims(object):
         self.password = password
         self.base_url = base_url
         self.project_id = project_id
+        self.timeout = timeout
         self.log = []
         self.session = self.create_session(password, token=token)
 
@@ -50,7 +59,9 @@ class Flexilims(object):
 
         session = requests.Session()
         if token is None:
-            token = get_token(self.username, password, self.base_url)
+            token = get_token(
+                self.username, password, self.base_url, timeout=self.timeout
+            )
 
         session.headers.update(token)
         self.log.append("Session created for user %s" % self.username)
@@ -59,14 +70,17 @@ class Flexilims(object):
     def update_token(self, timeout=600):
         """Update the token in the session"""
         token = None
-        elapsed_time = 0
-        while token is None and elapsed_time < timeout:
-            elapsed_time += 5
+        deadline = time.monotonic() + timeout
+        while token is None and time.monotonic() < deadline:
             try:
-                token = get_token(self.username, self.password, self.base_url)
-            except IOError:
+                token = get_token(
+                    self.username, self.password, self.base_url, timeout=self.timeout
+                )
+            except (IOError, requests.exceptions.RequestException):
+                if time.monotonic() >= deadline:
+                    break
                 print("Failed to get a token. Retrying in 5 seconds.")
-                time.sleep(5)
+                time.sleep(min(5, max(0, deadline - time.monotonic())))
         if token is None:
             raise IOError("Failed to get a token. Timeout reached.")
         self.session.headers.update(token)
@@ -85,6 +99,7 @@ class Flexilims(object):
         date_created_operator=None,
         cross_project_entity=False,
         limit=None,
+        offset=None,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -93,10 +108,12 @@ class Flexilims(object):
             project_id: hexadecimal id of the project. If None, will use the session
                 default
             id: flexilims id of the object.
-            name: name of the object
-            query_key: attribute to filter the results. Filtering is only possible with
-                one attribute
-            query_value: valid value for attribute name `query_key`
+            name: name of the object. Note that on the server, if `name` is provided,
+                all other query parameters are ignored.
+            query_key: attribute name (or sequence of attribute names) to filter the
+                results. Multiple attributes are combined with AND.
+            query_value: valid value (or sequence of values, in the same order as
+                `query_key`) for `query_key`.
             origin_id: hexadecimal id of the origin of the object
             created_by: name of the user who created the object
             date_created: cutoff date. Only elements with date creation greater
@@ -106,7 +123,10 @@ class Flexilims(object):
                 'gt') both include exact match
             cross_project_entity (bool): whether to include cross project entity in the
                 results (default to False)
-            limit (int): maximum number of results to return (default to None)
+            limit (int): maximum number of results to return. If None, omitted from the
+                request (server defaults to 1000, which is also the max per call).
+            offset (int): 0-based number of results to skip for pagination (default to
+                None).
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
         """
@@ -133,6 +153,7 @@ class Flexilims(object):
             "date_created_operator",
             "created_by",
             "limit",
+            "offset",
         )
         for arg_name in args:
             if locals()[arg_name] is not None:
@@ -185,21 +206,26 @@ class Flexilims(object):
                          set to null, if False, such values will be ignored and
                          not updated.
                          Note that required attributes cannot be set to None.
-            project_id: hexadecimal project id. Use self.project if None.
+            project_id: deprecated and ignored (`PUT /update-one` does not accept
+                `project_id`).
 
         Returns: reply from flexilims
         """
-        if project_id is None:
-            project_id = self.project_id
+        if project_id is not None:
+            warnings.warn(
+                "`project_id` is deprecated in `update_one` and ignored by the server.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         params = dict(type=datatype, id=id)
         json_data = {}
-        for field in ("name", "origin_id", "attributes"):
-            value = locals()[field]
-            if value is not None:
-                json_data[field] = value
-
-        check_flexilims_validity(json_data)
+        if name is not None:
+            json_data["name"] = name
+        if origin_id is not None:
+            json_data["origin_id"] = origin_id
+        if attributes is not None:
+            json_data["attributes"] = check_flexilims_validity(attributes)
 
         address = "update-one"
         # add flags
@@ -234,8 +260,9 @@ class Flexilims(object):
             query_key (optional): attribute to select which entries to update
             query_value (optional): valid value for query_key
             project_id (optional): hexadecimal project id. Use self.project if None.
-            strict_validation (True by default) if True, check that all attributes are
-                               defined in the lab settings
+            strict_validation: (False by default) if True, check that all attributes
+                               are defined in the lab settings (note: not listed in the
+                               current `update-many` API docs)
 
         Returns: reply from flexilims
         """
@@ -245,22 +272,21 @@ class Flexilims(object):
         for n, w in zip(["update_key", "query_key"], [update_key, query_key]):
             if (w is not None) and (w.lower() != w):
                 warnings.warn("`%s` should probably be lower case. Trying anyways" % n)
+        cleaned = check_flexilims_validity({update_key: update_value})
         params = dict(
             type=datatype,
             project_id=project_id,
             update_key=update_key,
-            update_value=update_value,
+            update_value=cleaned[update_key],
         )
         if query_key is not None:
             params["query_key"] = query_key
         if query_value is not None:
             params["query_value"] = query_value
 
-        check_flexilims_validity(params)
-
         address = "update-many"
         if strict_validation:
-            address += "?strict_validation=true"
+            params["strict_validation"] = "true"
 
         return self.safe_execute(
             "content", self.session.put, self.base_url + address, params=params
@@ -273,7 +299,6 @@ class Flexilims(object):
         attributes,
         project_id=None,
         origin_id=None,
-        other_relations=None,
         strict_validation=True,
     ):
         """Create a new entry in the database
@@ -286,7 +311,6 @@ class Flexilims(object):
                         supported
             project_id: hexadecimal project id. Use self.project if None.
             origin_id: (optional) hexadecimal id of the origin for this entity
-            other_relations (optional): not used. Ask Mike Gavrielides to know more
             strict_validation: (True by default) if True, check that all attributes are
                                defined in the lab settings
 
@@ -300,22 +324,23 @@ class Flexilims(object):
 
         # Flexilims cannot handle None value for now
         # requests refuses invalid json, so no NaNs either
-        check_flexilims_validity(attributes)
+        attributes = check_flexilims_validity(attributes)
 
         json_data = dict(
             type=datatype, name=name, project_id=project_id, attributes=attributes
         )
         if origin_id is not None:
             json_data["origin_id"] = origin_id
-        if other_relations is not None:
-            json_data["other_relations"] = other_relations
 
         address = "save"
-        if strict_validation:
-            address += "?strict_validation=true"
+        params = {"strict_validation": "true"} if strict_validation else None
 
         return self.safe_execute(
-            "json", self.session.post, self.base_url + address, json=json_data
+            "json",
+            self.session.post,
+            self.base_url + address,
+            params=params,
+            json=json_data,
         )
 
     def safe_execute(self, mode, function, *args, **kwargs):
@@ -329,14 +354,17 @@ class Flexilims(object):
         Returns:
             json or content of the response
         """
+        kwargs.setdefault("timeout", self.timeout)
         try:
             rep = function(*args, **kwargs)
-            self.handle_error(rep)
+            handled = self.handle_error(rep)
         except AuthenticationError:
             # try to update the token and retry
             self.update_token()
             rep = function(*args, **kwargs)
-            self.handle_error(rep)
+            handled = self.handle_error(rep)
+        if handled is not None:
+            return handled
         if mode == "json":
             return rep.json()
         elif mode == "content":
@@ -344,14 +372,57 @@ class Flexilims(object):
         else:
             raise ValueError("mode must be 'json' or 'content'")
 
-    def delete(self, id):
-        """Delete an entity
+    def delete(self, id=None, datatype=None, origin_name=None, project_id=None):
+        """Delete an entity by id, or delete direct children by type and origin name.
+
+        Supports two mutually exclusive modes:
+        - By `id`: delete the single entity with that hexadecimal id.
+        - By `datatype` and `origin_name` (plus `project_id`, defaulting to
+          `self.project_id`): delete all direct children of type `datatype` whose
+          origin has name `origin_name` (not recursive).
 
         Args:
             id: hexadecimal id of the entity to delete
+            datatype: entity type to delete (used with `origin_name`)
+            origin_name: name of the parent/origin entity (used with `datatype`)
+            project_id: hexadecimal project id (used with `datatype` and `origin_name`;
+                defaults to `self.project_id`)
+
+        Returns:
+            str: reply message from flexilims
         """
+        by_id = id is not None
+        by_origin = (
+            datatype is not None or origin_name is not None or project_id is not None
+        )
+        if by_id and by_origin:
+            raise ValueError(
+                "Provide either `id` or (`datatype`, `origin_name`, `project_id`), "
+                "not both."
+            )
+        if by_id:
+            if not isinstance(id, str) or not id.strip():
+                raise ValueError("`id` must be a non-empty string.")
+            params = dict(id=id)
+        elif datatype is not None and origin_name is not None:
+            if not isinstance(datatype, str) or not datatype.strip():
+                raise ValueError("`datatype` must be a non-empty string.")
+            if not isinstance(origin_name, str) or not origin_name.strip():
+                raise ValueError("`origin_name` must be a non-empty string.")
+            if project_id is None:
+                project_id = self.project_id
+            if not isinstance(project_id, str) or not project_id.strip():
+                raise ValueError(
+                    "`project_id` must be a non-empty string (provided or set on the "
+                    "session) when deleting by `datatype` and `origin_name`."
+                )
+            params = dict(project_id=project_id, type=datatype, origin_name=origin_name)
+        else:
+            raise ValueError(
+                "Provide either `id` or both `datatype` and `origin_name`."
+            )
         return self.safe_execute(
-            "content", self.session.delete, self.base_url + "delete", params=dict(id=id)
+            "content", self.session.delete, self.base_url + "delete", params=params
         )
 
     def handle_error(self, rep):
@@ -361,20 +432,18 @@ class Flexilims(object):
         # error handling:
         if rep.ok:
             warnings.warn(
-                "Warning. Seems ok but I had an unknown status code %s"
-                % rep.status_code
+                "Warning. Seems ok but I had an unknown status code %s. "
+                "Will return the response object without interpreting it; "
+                "see response.json() to (hopefully) get the data." % rep.status_code
             )
-            warnings.warn("Will return the response object without interpreting it.")
-            warnings.warn("see response.json() to (hopefully) get the data.")
             return rep
         if rep.status_code == 400:
             error_dict = parse_error(rep.content)
             raise IOError("Error %d: %s" % (rep.status_code, error_dict["message"]))
         if rep.status_code == 404:
-            raise IOError(
-                "Page not found is the base url: %s?" % (self.base_url + "get")
-            )
-        if rep.status_code == 403:
+            url = getattr(rep, "url", None) or self.base_url
+            raise IOError("Page not found: %s" % url)
+        if rep.status_code in (401, 403):
             raise AuthenticationError("Forbidden. Are you logged in?")
         raise IOError("Unknown error with status code %d" % rep.status_code)
 
@@ -409,17 +478,19 @@ def parse_error(error_message):
     regexp = (
         ".*<b>Type</b>(.*)</p><p><b>Message</b>(.*)</p><p><b>Description</b>(.*)</p>"
     )
-    m = re.match(pattern=regexp, string=error_message)
+    m = re.search(pattern=regexp, string=error_message, flags=re.DOTALL)
     if m is None:
         raise ValueError("Could not parse the Flexilims error response")
     return {name: v for name, v in zip(("type", "message", "description"), m.groups())}
 
 
-def get_token(username, password, base_url=BASE_URL):
+def get_token(username, password, base_url=BASE_URL, timeout=DEFAULT_TIMEOUT):
     """Login to the database and create headers with the proper token"""
     try:
         rep = requests.post(
-            base_url + "authenticate", auth=HTTPBasicAuth(username, password)
+            base_url + "authenticate",
+            auth=HTTPBasicAuth(username, password),
+            timeout=timeout,
         )
     except requests.exceptions.ConnectionError:
         raise requests.exceptions.ConnectionError(
@@ -427,6 +498,10 @@ def get_token(username, password, base_url=BASE_URL):
         )
     if rep.ok:
         token = rep.text
+    elif rep.status_code in (401, 403):
+        raise AuthenticationError(
+            "Failed to authenticate. Got an error %d" % rep.status_code
+        )
     else:
         raise IOError("Failed to authenticate. Got an error %d" % rep.status_code)
 

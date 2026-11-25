@@ -131,20 +131,10 @@ def test_download_database_pagination():
                 }
             )
 
-        def get(self, datatype, date_created=None, date_created_operator="gt"):
-            # Filter the mock data by datatype
+        def get(self, datatype, limit=1000, offset=0):
+            # Filter the mock data by datatype and paginate with offset/limit
             items = [item for item in self.mock_data if item["type"] == datatype]
-            if date_created is not None:
-                if date_created_operator == "gt":
-                    items = [
-                        item for item in items if item["dateCreated"] > date_created
-                    ]
-                elif date_created_operator == "lt":
-                    items = [
-                        item for item in items if item["dateCreated"] < date_created
-                    ]
-            # Enforce the server pagination limit of 1000
-            return items[:1000]
+            return items[offset : offset + limit]
 
     mock_sess = MockFlexilimsSession()
     json_data = download_database(
@@ -594,3 +584,315 @@ def test_update_many_not_implemented():
     sess = flm.OfflineFlexilims(JSON_FILE)
     with pytest.raises(NotImplementedError):
         sess.update_many([])
+
+
+def test_get_limit_cross_project_and_multi_query():
+    sess = flm.OfflineFlexilims(JSON_FILE, project_id="different_project_id")
+    # project_id mismatch returns nothing unless cross_project_entity=True
+    assert len(sess.get(datatype="recording")) == 0
+    assert len(sess.get(datatype="recording", cross_project_entity=True)) == 1
+
+    # limit and offset paginate results
+    all_entries = sess.get(cross_project_entity=True)
+    assert len(all_entries) >= 3
+    assert len(sess.get(cross_project_entity=True, limit=2)) == 2
+    assert len(sess.get(cross_project_entity=True, limit=0)) == 0
+    page1 = sess.get(cross_project_entity=True, limit=2, offset=0)
+    page2 = sess.get(cross_project_entity=True, limit=2, offset=2)
+    assert [e["id"] for e in page1 + page2] == [e["id"] for e in all_entries[:4]]
+    assert sess.get(cross_project_entity=True, offset=999) == []
+    with pytest.raises(FlexilimsError, match="offset"):
+        sess.get(cross_project_entity=True, offset=-1)
+
+    # multi-attribute query_key / query_value (AND semantics)
+    sess_proj = flm.OfflineFlexilims(JSON_FILE, project_id=PROJECT_ID)
+    r = sess_proj.get(
+        datatype="recording",
+        query_key=["rec_attr", "path"],
+        query_value=["attribute of recording", "test/session/recording"],
+    )
+    assert len(r) == 1
+    r_miss = sess_proj.get(
+        datatype="recording",
+        query_key=["rec_attr", "path"],
+        query_value=["attribute of recording", "wrong/path"],
+    )
+    assert len(r_miss) == 0
+    with pytest.raises(FlexilimsError):
+        sess_proj.get(
+            datatype="recording",
+            query_key=["rec_attr", "path"],
+            query_value=["only_one"],
+        )
+
+
+def test_removed_and_deprecated_params():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    # other_relations was removed from post() (online and offline)
+    with pytest.raises(TypeError, match="other_relations"):
+        sess.post(
+            datatype="session",
+            name="bad_param_test",
+            attributes={},
+            other_relations="x",  # ty: ignore[unknown-argument]
+        )
+    assert "other_relations" not in main.Flexilims.post.__code__.co_varnames
+
+    # project_id in update_one emits DeprecationWarning
+    with pytest.warns(DeprecationWarning, match="project_id"):
+        sess.update_one(
+            id=MOUSE_ID,
+            datatype="mouse",
+            project_id=PROJECT_ID,
+        )
+
+
+def test_post_duplicate_name_does_not_overwrite(json_copy):
+    sess = flm.OfflineFlexilims(json_copy, edit_file=True)
+    assert len(sess.get_children(MOUSE_ID)) == 1
+
+    # Duplicate root name must fail and leave existing entity + children intact
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.post(datatype="mouse", name="test_mouse", attributes={})
+    assert len(sess.get_children(MOUSE_ID)) == 1
+    assert "test_session" in _load_json(json_copy)["test_mouse"]["children"]
+
+    # Duplicate child name must also fail
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.post(
+            datatype="session",
+            name="test_session",
+            origin_id=MOUSE_ID,
+            attributes={},
+        )
+
+
+def test_get_returns_dicts_none_origin_and_handles_empty(tmp_path):
+    sess = flm.OfflineFlexilims(JSON_FILE)
+
+    # query_key returns list of dicts, not pandas Series
+    r = sess.get(
+        datatype="recording",
+        project_id=PROJECT_ID,
+        query_key="rec_attr",
+        query_value="attribute of recording",
+    )
+    assert len(r) == 1
+    assert isinstance(r[0], dict)
+
+    # Root entities have origin_id=None, not NaN
+    mice = sess.get(datatype="mouse", project_id=PROJECT_ID)
+    assert len(mice) == 1
+    assert mice[0]["origin_id"] is None
+
+    # Empty JSON file returns [] without KeyError
+    empty_file = tmp_path / "empty.json"
+    empty_file.write_text("{}")
+    empty_sess = flm.OfflineFlexilims(empty_file)
+    assert empty_sess.get(datatype="mouse") == []
+
+
+def test_cache_and_db_protected_from_caller_mutation():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    res1 = sess.get(datatype="mouse", id=MOUSE_ID)
+    res1[0]["attributes"]["animal_name"] = "MUTATED"
+
+    res2 = sess.get(datatype="mouse", id=MOUSE_ID)
+    assert res2[0]["attributes"]["animal_name"] == "Jerry"
+
+    updated = sess.update_one(
+        id=MOUSE_ID, attributes={"animal_name": "Spike"}, strict_validation=False
+    )
+    updated["attributes"]["animal_name"] = "MUTATED_AGAIN"
+    assert sess.get(datatype="mouse", id=MOUSE_ID)[0]["attributes"]["animal_name"] == (
+        "Spike"
+    )
+
+    created = sess.post(
+        datatype="mouse", name="fresh_mouse", attributes={"animal_name": "Nibbles"}
+    )
+    created["attributes"]["animal_name"] = "MUTATED_POST"
+    assert (
+        sess.get(datatype="mouse", name="fresh_mouse")[0]["attributes"]["animal_name"]
+        == "Nibbles"
+    )
+
+
+def test_unknown_id_raises_flexilims_error():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.update_one(id="nope")
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.post(datatype="session", name="orphan", origin_id="nope", attributes={})
+    with pytest.raises(FlexilimsError, match="not found"):
+        sess.get_children("nope")
+
+
+def test_post_root_has_none_origin_id_and_update_missing_attributes(tmp_path):
+    db_file = tmp_path / "minimal.json"
+    db_file.write_text(
+        json.dumps({"m0": {"id": "1", "type": "mouse", "name": "m0", "project": "p1"}})
+    )
+    sess = flm.OfflineFlexilims(db_file)
+    created = sess.post(datatype="mouse", name="m1", attributes={})
+    assert "origin_id" in created
+    assert created["origin_id"] is None
+
+    # Entity without an "attributes" key can still be updated
+    updated = sess.update_one(id="1", attributes={"note": "added"})
+    assert updated["attributes"]["note"] == "added"
+
+
+def test_update_one_rename_rekeys_and_checks_uniqueness(json_copy):
+    sess = flm.OfflineFlexilims(json_copy, edit_file=True)
+    sess.update_one(id=MOUSE_ID, name="renamed_mouse", datatype="mouse")
+
+    assert "renamed_mouse" in sess._json_data
+    assert "test_mouse" not in sess._json_data
+    on_disk = _load_json(json_copy)
+    assert "renamed_mouse" in on_disk
+    assert "test_mouse" not in on_disk
+
+    # Renaming to an existing name raises FlexilimsError
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.update_one(id=MOUSE_ID, name="test_session", datatype="mouse")
+
+
+def test_update_one_rename_does_not_overwrite_other_project_root(tmp_path):
+    db_file = tmp_path / "multi_project.json"
+    db_file.write_text(
+        json.dumps(
+            {
+                "a": {"id": "1", "type": "mouse", "name": "a", "project": "p1"},
+                "b": {"id": "2", "type": "mouse", "name": "b", "project": "p2"},
+            }
+        )
+    )
+    sess = flm.OfflineFlexilims(db_file)
+    with pytest.raises(FlexilimsError, match="already exists"):
+        sess.update_one(id="1", name="b", datatype="mouse")
+    assert set(sess._json_data.keys()) == {"a", "b"}
+    assert sess._find_entity("1")["name"] == "a"
+    assert sess._find_entity("2")["name"] == "b"
+
+
+def test_update_one_and_post_nested_flags_and_attr_validation():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    rec = sess.get(datatype="recording", name="test_recording")[0]
+
+    # Invalid attribute name inside attributes is caught
+    with pytest.raises(FlexilimsError):
+        sess.update_one(
+            id=rec["id"],
+            datatype="recording",
+            attributes={"bad.name": 1},
+            strict_validation=False,
+        )
+
+    # allow_nulls=False is forwarded to nested dicts
+    rep = sess.update_one(
+        id=rec["id"],
+        datatype="recording",
+        allow_nulls=False,
+        attributes={"nested": {"keep": 1, "drop_empty": ""}},
+        strict_validation=False,
+    )
+    assert rep["attributes"]["nested"] == {"keep": 1}
+
+    # post forwards allow_strings=True to nested dicts
+    created = sess.post(
+        datatype="session",
+        name="nested_empty_str_session",
+        attributes={"nested": {"empty_str": ""}},
+        strict_validation=False,
+    )
+    assert created["attributes"]["nested"]["empty_str"] == ""
+
+
+def test_download_database_offset_pagination_and_orphans(caplog):
+    from flexilims.offline import download_database
+
+    class UnsortedOffsetSession:
+        def __init__(self):
+            # Reverse-ordered and missing dateCreated to verify offset pagination
+            # does not depend on dateCreated or sort order
+            self.items = [
+                {"id": "m1", "type": "mouse", "name": "m1", "origin_id": None},
+                *[
+                    {
+                        "id": f"d_{i}",
+                        "type": "dataset",
+                        "name": f"d_{i}",
+                        "origin_id": "m1",
+                    }
+                    for i in reversed(range(1500))
+                ],
+            ]
+
+        def get(self, datatype, limit=1000, offset=0):
+            items = [it for it in self.items if it["type"] == datatype]
+            return items[offset : offset + limit]
+
+    db = download_database(
+        UnsortedOffsetSession(), types=("mouse", "dataset"), verbose=False
+    )
+    assert db["m1"]["origin_id"] is None
+    assert len(db["m1"]["children"]) == 1500
+
+    # Downloading child without parent logs a warning (does not raise under -W error)
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        orphan_db = download_database(
+            UnsortedOffsetSession(), types=("dataset",), verbose=False
+        )
+    assert orphan_db == {}
+    assert "1500 downloaded entities" in caplog.text
+    assert "omitted from the hierarchy" in caplog.text
+
+    # Orphan count includes descendants of an omitted parent
+    class NestedOrphanSession:
+        def get(self, datatype, **kwargs):
+            data = {
+                "session": [
+                    {"id": "s1", "type": "session", "name": "s1", "origin_id": "m_gone"}
+                ],
+                "recording": [
+                    {"id": "r1", "type": "recording", "name": "r1", "origin_id": "s1"}
+                ],
+            }
+            return data.get(datatype, [])
+
+    caplog.clear()
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        nested_orphan_db = download_database(
+            NestedOrphanSession(), types=("session", "recording"), verbose=False
+        )
+    assert nested_orphan_db == {}
+    assert "2 downloaded entities" in caplog.text
+
+    # Empty download returns {}
+    class EmptySession:
+        def get(self, datatype, **kwargs):
+            return []
+
+    assert download_database(EmptySession(), types=("mouse",), verbose=False) == {}
+
+    # Server ignoring offset (repeating the same 1000 items) stops instead of looping
+    class StuckPaginationSession:
+        def __init__(self):
+            self.calls = 0
+            self.page = [
+                {"id": f"m_{i}", "type": "mouse", "name": f"m_{i}", "origin_id": None}
+                for i in range(1000)
+            ]
+
+        def get(self, datatype, limit=1000, offset=0):
+            self.calls += 1
+            return self.page
+
+    stuck_sess = StuckPaginationSession()
+    caplog.clear()
+    with caplog.at_level("WARNING", logger="flexilims.offline"):
+        stuck_db = download_database(stuck_sess, types=("mouse",), verbose=False)
+    assert stuck_sess.calls == 2
+    assert len(stuck_db) == 1000
+    assert "avoid an infinite loop" in caplog.text

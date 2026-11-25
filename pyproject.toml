@@ -79,6 +79,7 @@ source = ["flexilims"]
 [tool.check-manifest]
 ignore = [
   ".yaml",
+  "AGENTS.md",
   "tox.ini",
   "tests/",
   "docs/",
