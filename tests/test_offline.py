@@ -634,7 +634,7 @@ def test_removed_and_deprecated_params():
             datatype="session",
             name="bad_param_test",
             attributes={},
-            other_relations="x",
+            other_relations="x",  # ty: ignore[unknown-argument]
         )
     assert "other_relations" not in main.Flexilims.post.__code__.co_varnames
 

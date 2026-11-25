@@ -83,7 +83,8 @@ def test_get_builds_request_parameters(client):
                     "date_created": 123,
                     "date_created_operator": "gt",
                     "limit": 10,
-                }
+                },
+                "timeout": main.DEFAULT_TIMEOUT,
             },
         )
     ]
@@ -110,6 +111,7 @@ def test_write_methods_build_expected_requests(client):
                     "allow_nulls": "true",
                 },
                 "json": {"name": "renamed"},
+                "timeout": main.DEFAULT_TIMEOUT,
             },
         ),
         (
@@ -121,22 +123,29 @@ def test_write_methods_build_expected_requests(client):
                     "project_id": PROJECT_ID,
                     "update_key": "status",
                     "update_value": "done",
-                }
+                },
+                "timeout": main.DEFAULT_TIMEOUT,
             },
         ),
         (
             "post",
-            client.base_url + "save?strict_validation=true",
+            client.base_url + "save",
             {
+                "params": {"strict_validation": "true"},
                 "json": {
                     "type": "recording",
                     "name": "new",
                     "project_id": PROJECT_ID,
                     "attributes": {"path": "file"},
-                }
+                },
+                "timeout": main.DEFAULT_TIMEOUT,
             },
         ),
-        ("delete", client.base_url + "delete", {"params": {"id": "entity"}}),
+        (
+            "delete",
+            client.base_url + "delete",
+            {"params": {"id": "entity"}, "timeout": main.DEFAULT_TIMEOUT},
+        ),
     ]
 
 
@@ -144,7 +153,7 @@ def test_safe_execute_refreshes_an_expired_token(client, monkeypatch):
     responses = [FakeResponse(status_code=403), FakeResponse(payload={"ok": True})]
     refreshes = []
 
-    def request():
+    def request(timeout=None):
         return responses.pop(0)
 
     monkeypatch.setattr(client, "update_token", lambda: refreshes.append(True))

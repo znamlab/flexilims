@@ -112,15 +112,13 @@ def test_wrong_password_fails_fast_in_update_token():
     sess = Flexilims(
         "user", "wrong_pw", project_id=PROJECT_ID, token={"Authorization": "Bearer tok"}
     )
-    with (
-        patch("flexilims.main.requests.post") as mock_post,
-        patch("flexilims.main.time.sleep") as mock_sleep,
-    ):
-        mock_post.return_value = _make_mock_response(status_code=403)
-        with pytest.raises(AuthenticationError):
-            sess.update_token()
-        assert mock_post.call_count == 1
-        mock_sleep.assert_not_called()
+    with patch("flexilims.main.requests.post") as mock_post:
+        with patch("flexilims.main.time.sleep") as mock_sleep:
+            mock_post.return_value = _make_mock_response(status_code=403)
+            with pytest.raises(AuthenticationError):
+                sess.update_token()
+            assert mock_post.call_count == 1
+            mock_sleep.assert_not_called()
 
 
 @pytest.mark.parametrize("status_code", [401, 403])
@@ -190,13 +188,11 @@ def test_update_token_respects_wall_clock_timeout():
         now[0] += 60.0
         raise IOError("server timeout")
 
-    with (
-        patch("flexilims.main.time.monotonic", side_effect=fake_monotonic),
-        patch("flexilims.main.time.sleep") as mock_sleep,
-        patch("flexilims.main.get_token", side_effect=slow_fail) as mock_get,
-    ):
-        with pytest.raises(IOError, match="Timeout reached"):
-            sess.update_token(timeout=100)
+    with patch("flexilims.main.time.monotonic", side_effect=fake_monotonic):
+        with patch("flexilims.main.time.sleep") as mock_sleep:
+            with patch("flexilims.main.get_token", side_effect=slow_fail) as mock_get:
+                with pytest.raises(IOError, match="Timeout reached"):
+                    sess.update_token(timeout=100)
     # 2 attempts * 60s = 120s >= 100s deadline (not 20 attempts)
     assert mock_get.call_count == 2
     assert mock_sleep.call_count == 1

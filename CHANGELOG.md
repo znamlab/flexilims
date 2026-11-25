@@ -1,4 +1,4 @@
-# Unreleased
+# v26.11.0
 
 Features:
 - Support deleting direct children by type and origin name in `Flexilims.delete()` via
@@ -28,7 +28,7 @@ for 10 minutes in `update_token`, use wall-clock deadlines in `update_token`, an
 refresh expired tokens on both 401 and 403.
 - Return non-200 2xx responses from `safe_execute` as warned, report the actual request
 URL on 404, pass `strict_validation` via `params` in `post()` and `update_many()`, and
-make `parse_error` handle multiline HTML and non-HTML error pages.
+make `parse_error` handle multiline HTML error pages.
 - Fix `OfflineFlexilims` data integrity and return types: enforce name uniqueness and
 validate `origin_id` in `post`, raise `FlexilimsError` on unknown `id` in `update_one`
 and `get_children`, re-key renamed entities safely, forward `allow_nulls`/`allow_strings`
@@ -37,24 +37,12 @@ with `origin_id=None` for root entities), and set `"origin_id": None` on posted 
 - Deduplicate paginated results in `download_database`, keep root `origin_id` as `None`,
 guard against infinite pagination loops, and log a warning when orphaned entities (and
 their descendants) are omitted.
-- Remove `OfflineFlexilims._format_dataframe`, dead code calling a method that does not
-exist.
 
-Tests & CI:
+Tests & Tooling:
 - Add network-free unit tests in `tests/test_unit.py` and expanded offline/live
-regression tests in `tests/test_offline.py` and `tests/test_flexilims.py`.
-- Replace the `neuroinformatics-unit/actions` workflows with the reusable
-`znamlab/python-uv-ci` workflow (uv-based lint, `ty` type check and tests).
-- Run the test suite in CI for the first time: remove the `raise IOError` that
-`tests/test_flexilims.py` triggered under GitHub Actions. Crick-network tests stay
-skipped there.
-- Move the `dev` dependencies from an extra to a PEP 735 dependency group so `uv sync`
-installs them, and add the previously undeclared `numpy` plus `ty`.
-- Replace mypy with `ty` in pre-commit so the local hook and CI run the same type
-checker.
-- Replace the tag release workflow: build with `uv build` and attach the sdist and wheel
-to the GitHub Release (the old job pointed at a deleted `release_notes.md`).
-- Drop `docs_build_and_deploy.yml`, which built Sphinx docs that do not exist.
+regression tests in `tests/test_offline.py`, `tests/test_main_client.py`, and
+`tests/test_flexilims.py`.
+- Add `AGENTS.md` with changelog, git confirmation, and development check guidelines.
 
 # v1.3
 
