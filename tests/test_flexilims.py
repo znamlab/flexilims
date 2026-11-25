@@ -619,23 +619,6 @@ def test_post_error():
             name="test_ran_on_%s_with_origin" % "now",
             attributes=dict(rec=10),
             origin_id="605a36c53b38df2abd7757e9",
-            other_relations="undefined",
-        )
-    err_msg = (
-        "Error 400:  other_relations is not valid. Valid fields are [type, name, "
-        "origin_id, custom_entity_id, project_id, attributes, custom_entities, "
-        "detach_custom_entities, id, date_created, created_by, date_created_operator, "
-        "query_key, query_value, strict_validation, allow_nulls, external_resource, "
-        "query_value_data_type, offset, limit, cross_project_entity]"
-    )
-    assert exc_info.value.args[0] == err_msg
-    with pytest.raises(OSError) as exc_info:
-        sess.post(
-            datatype="recording",
-            project_id=PROJECT_ID,
-            name="test_ran_on_%s_with_origin" % "now",
-            attributes=dict(rec=10),
-            origin_id="605a36c53b38df2abd7757e9",
         )
     assert exc_info.value.args[0] == "Error 400:  origin not found"
     with pytest.raises(OSError) as exc_info:

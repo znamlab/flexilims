@@ -135,6 +135,8 @@ class OfflineFlexilims(object):
         origin_id=None,
         date_created=None,
         date_created_operator=None,
+        cross_project_entity=False,
+        limit=None,
     ):
         """Get all the entries of type datatype in the current project
 
@@ -144,9 +146,10 @@ class OfflineFlexilims(object):
                 default
             id: flexilims id of the object.
             name: name of the object
-            query_key: attribute to filter the results. Filtering is only possible with
-                one attribute
-            query_value: valid value for attribute name `query_key`
+            query_key: attribute name (or sequence of attribute names) to filter the
+                results. Multiple attributes are combined with AND.
+            query_value: valid value (or sequence of values, in the same order as
+                `query_key`) for `query_key`.
             origin_id: hexadecimal id of the origin of the object
             created_by: name of the user who created the object
             date_created: cutoff date. Only elements with date creation greater
@@ -154,6 +157,9 @@ class OfflineFlexilims(object):
                 date_created_operator), in unix time since epoch.
             date_created_operator: 'gt' or 'lt' for greater or lower than (default to
                 'gt') both include exact match
+            cross_project_entity (bool): whether to include cross project entity in the
+                results (default to False). When True, project filtering is skipped.
+            limit (int): maximum number of results to return (default to None)
 
         Returns:
             a list of dictionary with one element per valid flexilimns entry.
@@ -169,7 +175,7 @@ class OfflineFlexilims(object):
             id=id,
             name=name,
             origin_id=origin_id,
-            project=project_id,
+            project=None if cross_project_entity else project_id,
         )
         for key, value in filters.items():
             if value is not None:
@@ -185,14 +191,27 @@ class OfflineFlexilims(object):
             else:
                 raise FlexilimsError("date_created_operator should be 'gt' or 'lt'")
         if query_key is not None:
+            if isinstance(query_key, (list, tuple)):
+                if not isinstance(query_value, (list, tuple)) or len(query_key) != len(
+                    query_value
+                ):
+                    raise FlexilimsError(
+                        "`query_value` must be a sequence with the same length as "
+                        "`query_key`"
+                    )
+                query_pairs = list(zip(query_key, query_value))
+            else:
+                query_pairs = [(query_key, query_value)]
+
             valid = []
             for _, el in data.iterrows():
-                if query_key in el["attributes"]:
-                    if el["attributes"][query_key] == query_value:
-                        valid.append(el)
-            return valid
+                attrs = el["attributes"]
+                if all(k in attrs and attrs[k] == v for k, v in query_pairs):
+                    valid.append(el)
+            return valid[:limit] if limit is not None else valid
         # get returns a list of dict
-        return data.to_dict(orient="records")
+        records = data.to_dict(orient="records")
+        return records[:limit] if limit is not None else records
 
     def get_children(self, id):
         """Get the children of one entry based on its hexadecimal id
@@ -250,10 +269,17 @@ class OfflineFlexilims(object):
                          set to null, if False, such values will be ignored and
                          not updated.
                          Note that required attributes cannot be set to None.
-            project_id: hexadecimal project id. Use self.project if None.
+            project_id: deprecated and ignored (`PUT /update-one` does not accept
+                `project_id`).
 
         Returns: updated entity
         """
+        if project_id is not None:
+            warn(
+                "`project_id` is deprecated in `update_one` and ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         json_data = {}
         for field in ("name", "origin_id", "attributes"):
@@ -316,7 +342,6 @@ class OfflineFlexilims(object):
         attributes,
         project_id=None,
         origin_id=None,
-        other_relations=None,
         strict_validation=True,
     ):
         """Create a new entity in the database.
@@ -327,7 +352,6 @@ class OfflineFlexilims(object):
             attributes: dictionary of attributes for the entity
             project_id: Not used in offline mode
             origin_id: (optional) hexadecimal id of the origin for this entity
-            other_relations: (optional) dictionary of other relations for the entity
             strict_validation: Not used in offline mode
 
         Returns: the created entity
@@ -364,8 +388,6 @@ class OfflineFlexilims(object):
 
         if origin_id is not None:
             json_data["origin_id"] = origin_id
-        if other_relations is not None:
-            json_data["other_relations"] = other_relations
         # Find the parent
         if origin_id is not None:
             parent = self._find_entity(origin_id)

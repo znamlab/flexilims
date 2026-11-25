@@ -594,3 +594,58 @@ def test_update_many_not_implemented():
     sess = flm.OfflineFlexilims(JSON_FILE)
     with pytest.raises(NotImplementedError):
         sess.update_many([])
+
+
+def test_get_limit_cross_project_and_multi_query():
+    sess = flm.OfflineFlexilims(JSON_FILE, project_id="different_project_id")
+    # project_id mismatch returns nothing unless cross_project_entity=True
+    assert len(sess.get(datatype="recording")) == 0
+    assert len(sess.get(datatype="recording", cross_project_entity=True)) == 1
+
+    # limit slices results
+    all_entries = sess.get(cross_project_entity=True)
+    assert len(all_entries) >= 2
+    assert len(sess.get(cross_project_entity=True, limit=2)) == 2
+    assert len(sess.get(cross_project_entity=True, limit=0)) == 0
+
+    # multi-attribute query_key / query_value (AND semantics)
+    sess_proj = flm.OfflineFlexilims(JSON_FILE, project_id=PROJECT_ID)
+    r = sess_proj.get(
+        datatype="recording",
+        query_key=["rec_attr", "path"],
+        query_value=["attribute of recording", "test/session/recording"],
+    )
+    assert len(r) == 1
+    r_miss = sess_proj.get(
+        datatype="recording",
+        query_key=["rec_attr", "path"],
+        query_value=["attribute of recording", "wrong/path"],
+    )
+    assert len(r_miss) == 0
+    with pytest.raises(FlexilimsError):
+        sess_proj.get(
+            datatype="recording",
+            query_key=["rec_attr", "path"],
+            query_value=["only_one"],
+        )
+
+
+def test_removed_and_deprecated_params():
+    sess = flm.OfflineFlexilims(JSON_FILE)
+    # other_relations was removed from post() (online and offline)
+    with pytest.raises(TypeError, match="other_relations"):
+        sess.post(
+            datatype="session",
+            name="bad_param_test",
+            attributes={},
+            other_relations="x",
+        )
+    assert "other_relations" not in main.Flexilims.post.__code__.co_varnames
+
+    # project_id in update_one emits DeprecationWarning
+    with pytest.warns(DeprecationWarning, match="project_id"):
+        sess.update_one(
+            id=MOUSE_ID,
+            datatype="mouse",
+            project_id=PROJECT_ID,
+        )

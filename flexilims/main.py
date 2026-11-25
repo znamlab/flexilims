@@ -93,10 +93,12 @@ class Flexilims(object):
             project_id: hexadecimal id of the project. If None, will use the session
                 default
             id: flexilims id of the object.
-            name: name of the object
-            query_key: attribute to filter the results. Filtering is only possible with
-                one attribute
-            query_value: valid value for attribute name `query_key`
+            name: name of the object. Note that on the server, if `name` is provided,
+                all other query parameters are ignored.
+            query_key: attribute name (or sequence of attribute names) to filter the
+                results. Multiple attributes are combined with AND.
+            query_value: valid value (or sequence of values, in the same order as
+                `query_key`) for `query_key`.
             origin_id: hexadecimal id of the origin of the object
             created_by: name of the user who created the object
             date_created: cutoff date. Only elements with date creation greater
@@ -185,12 +187,17 @@ class Flexilims(object):
                          set to null, if False, such values will be ignored and
                          not updated.
                          Note that required attributes cannot be set to None.
-            project_id: hexadecimal project id. Use self.project if None.
+            project_id: deprecated and ignored (`PUT /update-one` does not accept
+                `project_id`).
 
         Returns: reply from flexilims
         """
-        if project_id is None:
-            project_id = self.project_id
+        if project_id is not None:
+            warnings.warn(
+                "`project_id` is deprecated in `update_one` and ignored by the server.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         params = dict(type=datatype, id=id)
         json_data = {}
@@ -234,8 +241,9 @@ class Flexilims(object):
             query_key (optional): attribute to select which entries to update
             query_value (optional): valid value for query_key
             project_id (optional): hexadecimal project id. Use self.project if None.
-            strict_validation (True by default) if True, check that all attributes are
-                               defined in the lab settings
+            strict_validation: (False by default) if True, check that all attributes
+                               are defined in the lab settings (note: not listed in the
+                               current `update-many` API docs)
 
         Returns: reply from flexilims
         """
@@ -260,7 +268,7 @@ class Flexilims(object):
 
         address = "update-many"
         if strict_validation:
-            address += "?strict_validation=true"
+            params["strict_validation"] = "true"
 
         return self.safe_execute(
             "content", self.session.put, self.base_url + address, params=params
@@ -273,7 +281,6 @@ class Flexilims(object):
         attributes,
         project_id=None,
         origin_id=None,
-        other_relations=None,
         strict_validation=True,
     ):
         """Create a new entry in the database
@@ -286,7 +293,6 @@ class Flexilims(object):
                         supported
             project_id: hexadecimal project id. Use self.project if None.
             origin_id: (optional) hexadecimal id of the origin for this entity
-            other_relations (optional): not used. Ask Mike Gavrielides to know more
             strict_validation: (True by default) if True, check that all attributes are
                                defined in the lab settings
 
@@ -307,15 +313,16 @@ class Flexilims(object):
         )
         if origin_id is not None:
             json_data["origin_id"] = origin_id
-        if other_relations is not None:
-            json_data["other_relations"] = other_relations
 
         address = "save"
-        if strict_validation:
-            address += "?strict_validation=true"
+        params = {"strict_validation": "true"} if strict_validation else None
 
         return self.safe_execute(
-            "json", self.session.post, self.base_url + address, json=json_data
+            "json",
+            self.session.post,
+            self.base_url + address,
+            params=params,
+            json=json_data,
         )
 
     def safe_execute(self, mode, function, *args, **kwargs):
