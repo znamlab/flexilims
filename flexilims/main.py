@@ -372,14 +372,57 @@ class Flexilims(object):
         else:
             raise ValueError("mode must be 'json' or 'content'")
 
-    def delete(self, id):
-        """Delete an entity
+    def delete(self, id=None, datatype=None, origin_name=None, project_id=None):
+        """Delete an entity by id, or delete direct children by type and origin name.
+
+        Supports two mutually exclusive modes:
+        - By `id`: delete the single entity with that hexadecimal id.
+        - By `datatype` and `origin_name` (plus `project_id`, defaulting to
+          `self.project_id`): delete all direct children of type `datatype` whose
+          origin has name `origin_name` (not recursive).
 
         Args:
             id: hexadecimal id of the entity to delete
+            datatype: entity type to delete (used with `origin_name`)
+            origin_name: name of the parent/origin entity (used with `datatype`)
+            project_id: hexadecimal project id (used with `datatype` and `origin_name`;
+                defaults to `self.project_id`)
+
+        Returns:
+            str: reply message from flexilims
         """
+        by_id = id is not None
+        by_origin = (
+            datatype is not None or origin_name is not None or project_id is not None
+        )
+        if by_id and by_origin:
+            raise ValueError(
+                "Provide either `id` or (`datatype`, `origin_name`, `project_id`), "
+                "not both."
+            )
+        if by_id:
+            if not isinstance(id, str) or not id.strip():
+                raise ValueError("`id` must be a non-empty string.")
+            params = dict(id=id)
+        elif datatype is not None and origin_name is not None:
+            if not isinstance(datatype, str) or not datatype.strip():
+                raise ValueError("`datatype` must be a non-empty string.")
+            if not isinstance(origin_name, str) or not origin_name.strip():
+                raise ValueError("`origin_name` must be a non-empty string.")
+            if project_id is None:
+                project_id = self.project_id
+            if not isinstance(project_id, str) or not project_id.strip():
+                raise ValueError(
+                    "`project_id` must be a non-empty string (provided or set on the "
+                    "session) when deleting by `datatype` and `origin_name`."
+                )
+            params = dict(project_id=project_id, type=datatype, origin_name=origin_name)
+        else:
+            raise ValueError(
+                "Provide either `id` or both `datatype` and `origin_name`."
+            )
         return self.safe_execute(
-            "content", self.session.delete, self.base_url + "delete", params=dict(id=id)
+            "content", self.session.delete, self.base_url + "delete", params=params
         )
 
     def handle_error(self, rep):

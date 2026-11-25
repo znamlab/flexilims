@@ -133,6 +133,60 @@ def test_delete():
 
 
 @not_on_github
+def test_delete_by_origin_name():
+    sess = flm.Flexilims(USERNAME, password, project_id=PROJECT_ID, base_url=TEST_URL)
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    created_ids = []
+    try:
+        parent = sess.post(
+            datatype="session",
+            name=f"del_origin_sess_{now}",
+            origin_id=MOUSE_ID,
+            attributes=dict(path="temp"),
+            strict_validation=False,
+        )
+        created_ids.append(parent["id"])
+        rec1 = sess.post(
+            datatype="recording",
+            name=f"del_origin_rec1_{now}",
+            origin_id=parent["id"],
+            attributes=dict(path="temp"),
+            strict_validation=False,
+        )
+        created_ids.append(rec1["id"])
+        rec2 = sess.post(
+            datatype="recording",
+            name=f"del_origin_rec2_{now}",
+            origin_id=parent["id"],
+            attributes=dict(path="temp"),
+            strict_validation=False,
+        )
+        created_ids.append(rec2["id"])
+        grandchild = sess.post(
+            datatype="dataset",
+            name=f"del_origin_ds_{now}",
+            origin_id=rec1["id"],
+            attributes=dict(path="temp", dataset_type="camera"),
+            strict_validation=False,
+        )
+        created_ids.append(grandchild["id"])
+
+        dlm = sess.delete(datatype="recording", origin_name=parent["name"])
+        assert dlm == "deleted successfully 2"
+        assert not sess.get(datatype="recording", id=rec1["id"])
+        assert not sess.get(datatype="recording", id=rec2["id"])
+        assert sess.get(datatype="session", id=parent["id"])
+        # Deleting by (datatype, origin_name) is not recursive: grandchild survives
+        assert sess.get(datatype="dataset", id=grandchild["id"])
+    finally:
+        for ent_id in reversed(created_ids):
+            try:
+                sess.delete(ent_id)
+            except OSError:
+                pass
+
+
+@not_on_github
 def test_get_req():
     sess = flm.Flexilims(USERNAME, password, base_url=TEST_URL)
     # basic test
@@ -556,12 +610,8 @@ def test_post_req():
             expected = type(datatypes[k])
         assert isinstance(v, expected)
     # try to keep the db a bit clean
-    for i, dtype in ids:
-        try:
-            sess.delete(i)
-        except OSError:
-            # weirdly delete is sometimes recursive.
-            print(f"Could not delete {dtype} {i}")
+    for i, dtype in reversed(ids):
+        sess.delete(i)
         assert not sess.get(datatype=dtype, id=i)
     print("Done")
 

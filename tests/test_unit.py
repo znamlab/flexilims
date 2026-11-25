@@ -218,3 +218,63 @@ def test_get_passes_offset_and_limit():
     params_default = sess.session.get.call_args.kwargs["params"]
     assert "limit" not in params_default
     assert "offset" not in params_default
+
+
+def test_delete_by_id_and_by_origin_name():
+    sess = Flexilims(
+        "user", "pw", project_id=PROJECT_ID, token={"Authorization": "Bearer tok"}
+    )
+    sess.session = MagicMock()
+    sess.session.delete.return_value = _make_mock_response(
+        content=b"deleted successfully 1"
+    )
+
+    # Option A: delete by id
+    assert sess.delete("abc123") == "deleted successfully 1"
+    assert sess.session.delete.call_args.kwargs["params"] == {"id": "abc123"}
+
+    # Option B: delete by datatype + origin_name (uses session project_id)
+    assert (
+        sess.delete(datatype="recording", origin_name="sess_1")
+        == "deleted successfully 1"
+    )
+    assert sess.session.delete.call_args.kwargs["params"] == {
+        "project_id": PROJECT_ID,
+        "type": "recording",
+        "origin_name": "sess_1",
+    }
+
+    # Explicit project_id overrides session default
+    other_proj = "610989f9a651ff0b6237e0f6"
+    sess.delete(datatype="dataset", origin_name="rec_1", project_id=other_proj)
+    assert sess.session.delete.call_args.kwargs["params"] == {
+        "project_id": other_proj,
+        "type": "dataset",
+        "origin_name": "rec_1",
+    }
+
+    # Validation errors
+    with pytest.raises(ValueError, match="not both"):
+        sess.delete(id="abc123", datatype="recording", origin_name="sess_1")
+    with pytest.raises(ValueError, match="not both"):
+        sess.delete(id="abc123", project_id=PROJECT_ID)
+    with pytest.raises(ValueError, match="either"):
+        sess.delete()
+    with pytest.raises(ValueError, match="either"):
+        sess.delete(datatype="recording")
+    for bad_kwargs in (
+        {"id": ""},
+        {"id": "   "},
+        {"datatype": "", "origin_name": "sess_1"},
+        {"datatype": "recording", "origin_name": ""},
+        {"datatype": "recording", "origin_name": "   "},
+        {"datatype": "recording", "origin_name": "sess_1", "project_id": ""},
+    ):
+        with pytest.raises(ValueError, match="non-empty"):
+            sess.delete(**bad_kwargs)
+
+    sess_no_proj = Flexilims(
+        "user", "pw", project_id=None, token={"Authorization": "Bearer tok"}
+    )
+    with pytest.raises(ValueError, match="project_id"):
+        sess_no_proj.delete(datatype="recording", origin_name="sess_1")
