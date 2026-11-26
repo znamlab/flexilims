@@ -1,3 +1,8 @@
+# Unreleased
+
+Changes:
+- Remove the obsolete whitespace `UserWarning` from `check_flexilims_validity` (attribute names containing spaces are supported by both the FlexiLIMS API and Web UI).
+
 # v26.11.0
 
 Features:

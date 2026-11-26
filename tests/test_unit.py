@@ -26,10 +26,8 @@ def _make_mock_response(status_code=200, json_data=None, text="tok", content=b"o
 
 
 def test_check_flexilims_validity_whitespace_and_nested_keys():
-    with pytest.warns(UserWarning, match="white"):
-        check_flexilims_validity({"has space": 1})
-    with pytest.warns(UserWarning, match="white"):
-        check_flexilims_validity({"has\ttab": 1})
+    assert check_flexilims_validity({"has space": 1}) == {"has space": 1}
+    assert check_flexilims_validity({"has\ttab": 1}) == {"has\ttab": 1}
     with pytest.raises(FlexilimsError):
         check_flexilims_validity({"bad.key": 1})
 

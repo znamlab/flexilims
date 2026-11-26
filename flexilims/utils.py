@@ -8,7 +8,6 @@ from copy import deepcopy
 import pandas as pd
 
 SPECIAL_CHARACTERS = re.compile(r'[\',\.@"+=\-!#$%^&*<>?/\|}{~:]')
-WHITESPACE = re.compile(r"\s")
 
 
 class FlexilimsError(Exception):
@@ -27,7 +26,6 @@ def check_flexilims_validity(attributes, warn_case=False):
     """Check that the data can be uploaded to flexilims
 
     - Return a cleaned copy with None / NaN replaced by [] (does not mutate input)
-    - Warn if attribute names have whitespace characters
     - Crash if attribute names have special characters
     - [optionally] Warn if attributes are not lowercase. This is a minor display issue;
         attributes defined in the lab design page will always be displayed with the
@@ -54,11 +52,6 @@ def check_flexilims_validity(attributes, warn_case=False):
             warnings.warn(
                 "Warning. Attribute names are not case sensitive on the UI."
                 " `%s` might not appear online" % attr_name
-            )
-        if WHITESPACE.search(attr_name) is not None:
-            warnings.warn(
-                "Warning. Attribute names should not contain white "
-                "characters. `%s` might not appear online" % attr_name
             )
     return cleaned
 
