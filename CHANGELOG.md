@@ -4,6 +4,8 @@ Changes:
 - Remove the obsolete whitespace `UserWarning` from `check_flexilims_validity` (attribute names containing spaces are supported by both the FlexiLIMS API and Web UI).
 
 Minor:
+- Fix the `ptest` typo (should be `pytest`) in the uv `dev` dependency group, add `numpy` to it, remove the outdated `dev` optional-dependency extra, and make tox install the `dev` dependency group instead.
+- Run ruff and ty pre-commit hooks from the project's uv environment (replacing the pinned ruff-pre-commit and mypy hooks); bump ruff to 0.17.6 and ty to 0.0.112, and add pre-commit to the uv `dev` group.
 - Offline duplicate-name errors (`post` and renaming via `update_one`) now raise `NameNotUniqueError`, a subclass of both `FlexilimsError` and `IOError`, with a message matching the online API (`... already exist in the project ...`), so callers such as flexiznam handle name conflicts the same way online and offline.
 
 # v26.11.0

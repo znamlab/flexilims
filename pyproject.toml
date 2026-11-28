@@ -37,18 +37,6 @@ classifiers = [
 "Source Code" = "https://github.com/znamlab/flexilims"
 "User Support" = "https://github.com/znamlab/flexilims/issues"
 
-[project.optional-dependencies]
-dev = [
-  "pytest",
-  "pytest-cov",
-  "coverage",
-  "tox",
-  "mypy",
-  "pre-commit",
-  "ruff",
-  "setuptools_scm",
-]
-
 [build-system]
 requires = [
     "setuptools>=45",
@@ -125,7 +113,7 @@ python =
     3.13: py313
 
 [testenv]
-extras =
+dependency_groups =
     dev
 commands =
     pytest -v --color=yes --cov=flexilims --cov-report=xml
@@ -138,8 +126,10 @@ check-hidden = true
 
 [dependency-groups]
 dev = [
-    "ptest>=2.0.3",
+    "numpy",
+    "pre-commit",
+    "pytest",
     "pytest-cov>=5.0.0",
-    "ruff>=0.16.3",
-    "ty>=0.0.71",
+    "ruff>=0.17.6",
+    "ty>=0.0.112",
 ]

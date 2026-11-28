@@ -626,7 +626,7 @@ class DummySession(object):
 
 
 if __name__ == "__main__":
-    import flexiznam as flz  # ty: ignore[unresolved-import]
+    import flexiznam as flz  # ty: ignore[import-not-found]
 
     import flexilims as flm
 
