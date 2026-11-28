@@ -15,9 +15,26 @@ from warnings import warn
 
 import pandas as pd
 
-from flexilims.utils import FlexilimsError, check_flexilims_validity, format_results
+from flexilims.utils import (
+    FlexilimsError,
+    NameNotUniqueError,
+    check_flexilims_validity,
+    format_results,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _name_not_unique(name, project_id=None):
+    """Build the error raised when `name` is already used.
+
+    The message mimics the online API ("... already exist in the project ...") so that
+    callers matching on it (e.g. flexiznam) behave the same online and offline.
+    """
+    project = project_id if project_id is not None else "offline"
+    return NameNotUniqueError(
+        f"Error 400: Entity {name} already exist in the project {project}."
+    )
 
 
 def _is_missing_origin(value):
@@ -336,10 +353,10 @@ class OfflineFlexilims(object):
                     entity_project is None
                     or existing_el.get("project") == entity_project
                 ):
-                    raise FlexilimsError(f"Entity with name '{name}' already exists")
+                    raise _name_not_unique(name, entity_project)
             container, old_key = self._find_entity_container(id)
             if container is not None and name in container:
-                raise FlexilimsError(f"Entity with name '{name}' already exists")
+                raise _name_not_unique(name, entity_project)
             if container is not None and old_key is not None:
                 container[name] = container.pop(old_key)
             entity_to_update["name"] = name
@@ -435,7 +452,7 @@ class OfflineFlexilims(object):
             if existing_el["name"] == name and (
                 project_id is None or existing_el.get("project") == project_id
             ):
-                raise FlexilimsError(f"Entity with name '{name}' already exists")
+                raise _name_not_unique(name, project_id)
 
         # Validate parent before allocating an id or mutating state
         parent = None
@@ -444,9 +461,9 @@ class OfflineFlexilims(object):
             if parent is None:
                 raise FlexilimsError(f"Origin entity with id '{origin_id}' not found")
             if name in parent.get("children", {}):
-                raise FlexilimsError(f"Entity with name '{name}' already exists")
+                raise _name_not_unique(name, project_id)
         elif name in self._json_data:
-            raise FlexilimsError(f"Entity with name '{name}' already exists")
+            raise _name_not_unique(name, project_id)
 
         json_data = dict(type=datatype, name=name, attributes=attr2change)
         if project_id is not None:

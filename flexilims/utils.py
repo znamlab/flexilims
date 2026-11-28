@@ -16,6 +16,16 @@ class FlexilimsError(Exception):
     pass
 
 
+class NameNotUniqueError(FlexilimsError, IOError):
+    """An entity with this name already exists in the project.
+
+    Also an `IOError` so that offline mode raises the same exception type as the online
+    API (which reports duplicates as an `IOError` on HTTP 400).
+    """
+
+    pass
+
+
 class AuthenticationError(Exception):
     """Error 403 when authenticating"""
 

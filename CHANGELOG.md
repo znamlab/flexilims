@@ -3,6 +3,9 @@
 Changes:
 - Remove the obsolete whitespace `UserWarning` from `check_flexilims_validity` (attribute names containing spaces are supported by both the FlexiLIMS API and Web UI).
 
+Minor:
+- Offline duplicate-name errors (`post` and renaming via `update_one`) now raise `NameNotUniqueError`, a subclass of both `FlexilimsError` and `IOError`, with a message matching the online API (`... already exist in the project ...`), so callers such as flexiznam handle name conflicts the same way online and offline.
+
 # v26.11.0
 
 Features:

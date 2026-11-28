@@ -15,7 +15,7 @@ except ImportError:
 
 import flexilims.offline as flm
 from flexilims import main
-from flexilims.utils import FlexilimsError
+from flexilims.utils import FlexilimsError, NameNotUniqueError
 
 BASE_URL = "https://flexylims.thecrick.org/flexilims/api/"
 USERNAME = "blota"
@@ -652,13 +652,13 @@ def test_post_duplicate_name_does_not_overwrite(json_copy):
     assert len(sess.get_children(MOUSE_ID)) == 1
 
     # Duplicate root name must fail and leave existing entity + children intact
-    with pytest.raises(FlexilimsError, match="already exists"):
+    with pytest.raises(NameNotUniqueError, match="already exist in the project "):
         sess.post(datatype="mouse", name="test_mouse", attributes={})
     assert len(sess.get_children(MOUSE_ID)) == 1
     assert "test_session" in _load_json(json_copy)["test_mouse"]["children"]
 
     # Duplicate child name must also fail
-    with pytest.raises(FlexilimsError, match="already exists"):
+    with pytest.raises(NameNotUniqueError, match="already exist in the project "):
         sess.post(
             datatype="session",
             name="test_session",
@@ -754,7 +754,7 @@ def test_update_one_rename_rekeys_and_checks_uniqueness(json_copy):
     assert "test_mouse" not in on_disk
 
     # Renaming to an existing name raises FlexilimsError
-    with pytest.raises(FlexilimsError, match="already exists"):
+    with pytest.raises(NameNotUniqueError, match="already exist in the project "):
         sess.update_one(id=MOUSE_ID, name="test_session", datatype="mouse")
 
 
@@ -769,7 +769,7 @@ def test_update_one_rename_does_not_overwrite_other_project_root(tmp_path):
         )
     )
     sess = flm.OfflineFlexilims(db_file)
-    with pytest.raises(FlexilimsError, match="already exists"):
+    with pytest.raises(NameNotUniqueError, match="already exist in the project "):
         sess.update_one(id="1", name="b", datatype="mouse")
     assert set(sess._json_data.keys()) == {"a", "b"}
     assert sess._find_entity("1")["name"] == "a"
@@ -896,3 +896,12 @@ def test_download_database_offset_pagination_and_orphans(caplog):
     assert stuck_sess.calls == 2
     assert len(stuck_db) == 1000
     assert "avoid an infinite loop" in caplog.text
+
+
+def test_duplicate_name_error_matches_online_api(json_copy):
+    """flexiznam detects duplicates by catching OSError and matching the message."""
+    sess = flm.OfflineFlexilims(json_copy)
+    with pytest.raises(OSError) as exc_info:
+        sess.post(datatype="mouse", name="test_mouse", attributes={})
+    assert isinstance(exc_info.value, FlexilimsError)
+    assert "already exist in the project " in exc_info.value.args[0]
